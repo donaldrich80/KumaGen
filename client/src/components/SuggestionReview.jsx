@@ -139,8 +139,8 @@ function ContainerSection({ cid, suggs, containerName, selectedMonitors, onToggl
         className="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-muted/50 transition-colors"
         onClick={() => setOpen(o => !o)}
       >
-        <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-xs shrink-0">{cid.slice(0, 12)}</span>
-        <span className="text-muted-foreground text-xs shrink-0">→</span>
+        <span className="hidden sm:inline-flex font-mono bg-muted px-1.5 py-0.5 rounded text-xs shrink-0">{cid.slice(0, 12)}</span>
+        <span className="hidden sm:inline text-muted-foreground text-xs shrink-0">→</span>
         <span className="font-semibold text-sm truncate">{containerName}</span>
 
         {/* Type summary chips — hidden when open */}
