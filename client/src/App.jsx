@@ -216,7 +216,7 @@ export default function App() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                <CheckCircle2 className="h-5 w-5 text-green-400" />
                 Done
               </CardTitle>
               <CardDescription>
@@ -228,7 +228,7 @@ export default function App() {
               {addResults.results.map((r, i) => (
                 <div key={i} className="flex items-center gap-3 text-sm">
                   {r.ok
-                    ? <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                    ? <CheckCircle2 className="h-4 w-4 text-green-400 shrink-0" />
                     : <XCircle className="h-4 w-4 text-destructive shrink-0" />}
                   <span className={r.ok ? '' : 'text-muted-foreground'}>{r.name}</span>
                   {r.ok

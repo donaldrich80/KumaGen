@@ -9,9 +9,9 @@ const toastVariants = cva(
     variants: {
       variant: {
         default: 'bg-background border-border text-foreground',
-        success: 'bg-green-50 border-green-200 text-green-900',
-        destructive: 'bg-red-50 border-red-200 text-red-900',
-        warning: 'bg-yellow-50 border-yellow-200 text-yellow-900',
+        success: 'bg-green-950/80 border-green-800/60 text-green-200',
+        destructive: 'bg-red-950/80 border-red-800/60 text-red-200',
+        warning: 'bg-yellow-950/80 border-yellow-800/60 text-yellow-200',
       },
     },
     defaultVariants: { variant: 'default' },
@@ -26,9 +26,9 @@ const ICONS = {
 };
 
 const ICON_COLORS = {
-  success: 'text-green-600',
-  destructive: 'text-red-600',
-  warning: 'text-yellow-600',
+  success: 'text-green-400',
+  destructive: 'text-red-400',
+  warning: 'text-yellow-400',
   default: 'text-foreground',
 };
 

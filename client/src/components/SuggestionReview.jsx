@@ -7,18 +7,18 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 const TYPE_META = {
-  http:     { label: 'HTTP',       icon: Globe,     color: 'info',      cardClass: 'border-blue-200    bg-blue-50/50'    },
-  port:     { label: 'TCP Port',   icon: Network,   color: 'secondary', cardClass: 'border-emerald-200  bg-emerald-50/50' },
-  ping:     { label: 'Ping',       icon: Radio,     color: 'secondary', cardClass: 'border-violet-200   bg-violet-50/50'  },
-  dns:      { label: 'DNS',        icon: Search,    color: 'secondary', cardClass: 'border-indigo-200   bg-indigo-50/50'  },
-  docker:   { label: 'Container',  icon: Container, color: 'secondary', cardClass: 'border-cyan-200     bg-cyan-50/50'    },
-  postgres: { label: 'PostgreSQL', icon: Database,  color: 'warning',   cardClass: 'border-amber-200    bg-amber-50/50'   },
-  mysql:    { label: 'MySQL',      icon: Database,  color: 'warning',   cardClass: 'border-yellow-200   bg-yellow-50/50'  },
-  redis:    { label: 'Redis',      icon: Database,  color: 'warning',   cardClass: 'border-orange-200   bg-orange-50/50'  },
-  mongodb:  { label: 'MongoDB',    icon: Database,  color: 'warning',   cardClass: 'border-rose-200     bg-rose-50/50'    },
+  http:     { label: 'HTTP',       icon: Globe,     color: 'info',      cardClass: 'border-blue-800/50    bg-blue-950/40'    },
+  port:     { label: 'TCP Port',   icon: Network,   color: 'secondary', cardClass: 'border-emerald-800/50  bg-emerald-950/40' },
+  ping:     { label: 'Ping',       icon: Radio,     color: 'secondary', cardClass: 'border-violet-800/50   bg-violet-950/40'  },
+  dns:      { label: 'DNS',        icon: Search,    color: 'secondary', cardClass: 'border-indigo-800/50   bg-indigo-950/40'  },
+  docker:   { label: 'Container',  icon: Container, color: 'secondary', cardClass: 'border-cyan-800/50     bg-cyan-950/40'    },
+  postgres: { label: 'PostgreSQL', icon: Database,  color: 'warning',   cardClass: 'border-amber-800/50    bg-amber-950/40'   },
+  mysql:    { label: 'MySQL',      icon: Database,  color: 'warning',   cardClass: 'border-yellow-800/50   bg-yellow-950/40'  },
+  redis:    { label: 'Redis',      icon: Database,  color: 'warning',   cardClass: 'border-orange-800/50   bg-orange-950/40'  },
+  mongodb:  { label: 'MongoDB',    icon: Database,  color: 'warning',   cardClass: 'border-rose-800/50     bg-rose-950/40'    },
 };
 
-const DEFAULT_META = { label: '', icon: Radio, color: 'secondary', cardClass: 'border-slate-200 bg-slate-50/60' };
+const DEFAULT_META = { label: '', icon: Radio, color: 'secondary', cardClass: 'border-slate-700/50 bg-slate-900/40' };
 
 function MonitorCard({ suggestion, selected, onToggle, editedFields, onFieldChange, connectionString, onConnectionStringChange }) {
   const [expanded, setExpanded] = useState(suggestion.requiresConnectionString);
