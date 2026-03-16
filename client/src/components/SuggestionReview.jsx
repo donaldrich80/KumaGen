@@ -7,15 +7,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 const TYPE_META = {
-  http:     { label: 'HTTP',       icon: Globe,     color: 'info',      cardClass: 'border-blue-200   bg-blue-50/40'  },
-  port:     { label: 'TCP Port',   icon: Network,   color: 'secondary', cardClass: 'border-emerald-200 bg-emerald-50/50' },
-  ping:     { label: 'Ping',       icon: Radio,     color: 'secondary', cardClass: 'border-violet-200  bg-violet-50/40'  },
-  dns:      { label: 'DNS',        icon: Search,    color: 'secondary', cardClass: 'border-purple-200  bg-purple-50/40'  },
-  docker:   { label: 'Container',  icon: Container, color: 'secondary', cardClass: 'border-cyan-200    bg-cyan-50/50'    },
-  postgres: { label: 'PostgreSQL', icon: Database,  color: 'warning',   cardClass: 'border-amber-200  bg-amber-50/40' },
-  mysql:    { label: 'MySQL',      icon: Database,  color: 'warning',   cardClass: 'border-amber-200  bg-amber-50/40' },
-  redis:    { label: 'Redis',      icon: Database,  color: 'warning',   cardClass: 'border-orange-200 bg-orange-50/40'},
-  mongodb:  { label: 'MongoDB',    icon: Database,  color: 'warning',   cardClass: 'border-green-200  bg-green-50/40' },
+  http:     { label: 'HTTP',       icon: Globe,     color: 'info',      cardClass: 'border-blue-200    bg-blue-50/50'    },
+  port:     { label: 'TCP Port',   icon: Network,   color: 'secondary', cardClass: 'border-emerald-200  bg-emerald-50/50' },
+  ping:     { label: 'Ping',       icon: Radio,     color: 'secondary', cardClass: 'border-violet-200   bg-violet-50/50'  },
+  dns:      { label: 'DNS',        icon: Search,    color: 'secondary', cardClass: 'border-indigo-200   bg-indigo-50/50'  },
+  docker:   { label: 'Container',  icon: Container, color: 'secondary', cardClass: 'border-cyan-200     bg-cyan-50/50'    },
+  postgres: { label: 'PostgreSQL', icon: Database,  color: 'warning',   cardClass: 'border-amber-200    bg-amber-50/50'   },
+  mysql:    { label: 'MySQL',      icon: Database,  color: 'warning',   cardClass: 'border-yellow-200   bg-yellow-50/50'  },
+  redis:    { label: 'Redis',      icon: Database,  color: 'warning',   cardClass: 'border-orange-200   bg-orange-50/50'  },
+  mongodb:  { label: 'MongoDB',    icon: Database,  color: 'warning',   cardClass: 'border-rose-200     bg-rose-50/50'    },
 };
 
 const DEFAULT_META = { label: '', icon: Radio, color: 'secondary', cardClass: 'border-slate-200 bg-slate-50/60' };
