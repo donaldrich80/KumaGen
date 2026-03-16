@@ -61,6 +61,20 @@ Available Uptime Kuma monitor types and their required fields:
 - "redis": Redis check. Fields: databaseConnectionString (e.g. "redis://hostname:6379")
 - "mongodb": MongoDB check. Fields: databaseConnectionString (e.g. "mongodb://hostname:27017")
 
+## OpenAPI specs
+Some containers will include an "openApiSpecs" array. Each entry was discovered by probing the container's HTTP ports and contains:
+- port: the host port the spec was found on
+- foundAt: the exact URL
+- title/description: from the spec's info block
+- endpoints: array of { method, path, summary, description, tags, operationId }
+
+When openApiSpecs is present, treat it as the highest-priority source of truth for what HTTP endpoints exist. Specifically:
+1. Scan all endpoint paths for anything containing "health", "ready", "live", "ping", "status", "metrics", "monitor", "heartbeat", "up", "alive" — suggest these as HTTP monitors.
+2. Use the endpoint's summary or description as the monitor description.
+3. If no dedicated health path exists in the spec, pick the most meaningful root-level GET endpoint as the HTTP check.
+4. Prefer openApiSpecs data over image-name heuristics when they conflict — the spec is ground truth.
+5. Still suggest a ping check regardless.
+
 ## Hostname rules
 - For host-mapped ports (hostPort is non-null): use "localhost" and the hostPort
 - For container-only ports (hostPort is null): use the container name and the containerPort
@@ -166,15 +180,27 @@ Respond ONLY with a valid JSON object. No markdown, no explanation. Format:
 async function suggestMonitors(containers) {
   const model = getModel();
 
-  const containerList = containers.map(c => ({
-    id: c.id,
-    name: c.name,
-    image: c.image,
-    ports: c.ports,
-    labels: c.labels,
-    envKeys: c.envKeys || [],
-    networks: c.networks,
-  }));
+  const containerList = containers.map(c => {
+    const entry = {
+      id: c.id,
+      name: c.name,
+      image: c.image,
+      ports: c.ports,
+      labels: c.labels,
+      envKeys: c.envKeys || [],
+      networks: c.networks,
+    };
+    if (c.openApiSpecs && c.openApiSpecs.length > 0) {
+      entry.openApiSpecs = c.openApiSpecs.map(s => ({
+        port: s.port,
+        foundAt: s.foundAt,
+        title: s.title,
+        description: s.description,
+        endpoints: s.endpoints,
+      }));
+    }
+    return entry;
+  });
 
   const { text } = await generateText({
     model,
