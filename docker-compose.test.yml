@@ -1,0 +1,66 @@
+
+# Test targets for KumaGen — covers a range of monitor types
+# Usage: docker compose -f docker-compose.test.yml up -d
+
+services:
+
+  # Web server — should suggest HTTP check on /healthz or /
+  nginx:
+    image: nginx:alpine
+    container_name: test-nginx
+    ports:
+      - "8080:80"
+    labels:
+      app: "nginx"
+      health.path: "/healthz"
+
+  # PostgreSQL — should suggest TCP port check + postgres DB monitor
+  postgres:
+    image: postgres:16-alpine
+    container_name: test-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpassword
+      POSTGRES_DB: testdb
+
+  # Redis — should suggest TCP port check + redis DB monitor
+  redis:
+    image: redis:7-alpine
+    container_name: test-redis
+    ports:
+      - "6379:6379"
+
+  # Grafana — should suggest HTTP check on /api/health
+  grafana:
+    image: grafana/grafana:latest
+    container_name: test-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+
+  # Prometheus — should suggest /-/healthy, /-/ready, and /metrics
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: test-prometheus
+    ports:
+      - "9090:9090"
+    labels:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "9090"
+
+  # Uptime Kuma — the monitoring dashboard AutoKuma manages
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: test-uptime-kuma
+    ports:
+      - "3002:3001"
+    volumes:
+      - uptime-kuma-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  uptime-kuma-data:
