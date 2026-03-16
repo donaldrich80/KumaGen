@@ -17,7 +17,7 @@ router.put('/', (req, res) => {
   const allowed = ['aiProvider', 'aiApiKey', 'aiModel', 'aiBaseUrl', 'kumaUrl', 'kumaUsername', 'kumaPassword',
     'anthropicApiKey', // kept for backward compat
     'suggestHttp', 'suggestPort', 'suggestPing', 'suggestDns', 'suggestDocker', 'suggestDatabase',
-    'useContainerNames', 'useTraefikLabels',
+    'useContainerNames', 'useTraefikLabels', 'groupByContainer',
   ];
   const updates = [];
 

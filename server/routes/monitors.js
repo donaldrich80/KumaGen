@@ -1,18 +1,24 @@
 const express = require('express');
 const router = express.Router();
 const { addMonitors } = require('../kuma');
-const { recordMonitors } = require('../db');
+const { recordMonitors, getSetting } = require('../db');
 
 // POST /api/monitors
 // Body: { monitors: Array<{ containerId, containerName, ...kumaMonitorFields }> }
 router.post('/', async (req, res) => {
-  const { monitors } = req.body;
+  const { monitors, options = {} } = req.body;
   if (!Array.isArray(monitors) || monitors.length === 0) {
     return res.status(400).json({ error: 'monitors must be a non-empty array' });
   }
 
+  // Caller can pass options.groupByContainer explicitly; falls back to stored setting
+  const groupByContainer =
+    options.groupByContainer !== undefined
+      ? options.groupByContainer
+      : (getSetting('groupByContainer') ?? 'false') !== 'false';
+
   try {
-    const results = await addMonitors(monitors);
+    const results = await addMonitors(monitors, { groupByContainer });
 
     // Record successful additions in SQLite
     const byContainer = {};
