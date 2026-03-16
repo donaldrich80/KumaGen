@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(docker compose:*)",
+      "Bash(docker ps:*)",
+      "Bash(docker system:*)",
+      "Bash(docker inspect:*)",
+      "Bash(docker exec:*)",
+      "Bash(curl:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}

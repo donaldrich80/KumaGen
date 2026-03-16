@@ -9,6 +9,7 @@ import { ContainerList } from '@/components/ContainerList';
 import { SuggestionReview } from '@/components/SuggestionReview';
 import { Settings } from '@/components/Settings';
 import { Help } from '@/components/Help';
+import { Toaster, useToast } from '@/components/ui/toast';
 
 export default function App() {
   const [step, setStep] = useState(1);
@@ -22,6 +23,7 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [aiStatus, setAiStatus] = useState({ required: false, ready: true });
+  const { toasts, toast, dismiss } = useToast();
 
   function fetchAiStatus() {
     fetch('/api/settings/ai-status').then(r => r.json()).then(setAiStatus).catch(() => {});
@@ -61,10 +63,37 @@ export default function App() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+
+      const { succeeded, failed } = data.summary;
+      if (succeeded > 0 && failed === 0) {
+        toast({
+          variant: 'success',
+          title: `${succeeded} monitor${succeeded !== 1 ? 's' : ''} added`,
+          description: 'Successfully added to Uptime Kuma.',
+        });
+      } else if (succeeded > 0 && failed > 0) {
+        toast({
+          variant: 'warning',
+          title: `${succeeded} added, ${failed} failed`,
+          description: 'Some monitors could not be added. See details below.',
+        });
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'All monitors failed',
+          description: data.results[0]?.error || 'Check your Uptime Kuma connection.',
+        });
+      }
+
       setAddResults(data);
       setStep(3);
     } catch (err) {
       setSuggestionError(err.message);
+      toast({
+        variant: 'destructive',
+        title: 'Failed to add monitors',
+        description: err.message,
+      });
     } finally {
       setLoadingMonitors(false);
     }
@@ -219,6 +248,7 @@ export default function App() {
 
       <Settings open={settingsOpen} onOpenChange={setSettingsOpen} />
       <Help open={helpOpen} onOpenChange={setHelpOpen} />
+      <Toaster toasts={toasts} onDismiss={dismiss} />
     </div>
   );
 }
