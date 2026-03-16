@@ -1,0 +1,20 @@
+services:
+  kumagen:
+    build: .
+    ports:
+      - "3001:3001"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - kumagen-data:/app/data
+    environment:
+      - PORT=3001
+      - DB_PATH=/app/data/kumagen.db
+      # Optional: pre-configure via env vars (can also set in the UI)
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - KUMA_URL=${KUMA_URL:-}
+      - KUMA_USERNAME=${KUMA_USERNAME:-}
+      - KUMA_PASSWORD=${KUMA_PASSWORD:-}
+    restart: unless-stopped
+
+volumes:
+  kumagen-data:
