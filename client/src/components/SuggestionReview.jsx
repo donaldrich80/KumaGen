@@ -25,13 +25,8 @@ function MonitorCard({ suggestion, selected, onToggle, editedFields, onFieldChan
   const meta = TYPE_META[suggestion.type] || DEFAULT_META;
   const Icon = meta.icon;
 
-  // When selected the type-tinted background is replaced by the primary selection tint
-  const cardClass = selected
-    ? 'border-primary/60 bg-primary/5'
-    : meta.cardClass;
-
   return (
-    <div className={`rounded-lg border p-3 transition-colors ${cardClass}`}>
+    <div className={`rounded-lg border p-3 transition-colors ${meta.cardClass} ${selected ? 'ring-2 ring-primary/40 ring-inset' : 'opacity-60'}`}>
       <div className="flex items-start gap-3">
         <Checkbox checked={selected} onCheckedChange={onToggle} className="mt-0.5" />
         <div className="flex-1 min-w-0 space-y-2">
