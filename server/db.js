@@ -75,4 +75,12 @@ function recordMonitors(containerId, containerName, monitors) {
   insertMany(monitors);
 }
 
-module.exports = { getSetting, setSetting, getAllSettings, getMonitoredContainerIds, getMonitorsByContainerId, recordMonitors };
+// Returns the Kuma monitor ID of the group for a given container, or null
+function getGroupMonitorId(containerId) {
+  const row = getDb()
+    .prepare('SELECT monitor_id FROM monitored_containers WHERE container_id = ? AND monitor_type = ? ORDER BY created_at DESC LIMIT 1')
+    .get(containerId, 'group');
+  return row ? row.monitor_id : null;
+}
+
+module.exports = { getSetting, setSetting, getAllSettings, getMonitoredContainerIds, getMonitorsByContainerId, recordMonitors, getGroupMonitorId };
