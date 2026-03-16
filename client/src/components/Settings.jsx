@@ -81,6 +81,7 @@ export function Settings({ open, onOpenChange }) {
     suggestDatabase: true,
     useContainerNames: false,
     useTraefikLabels: true,
+    groupByContainer: false,
   });
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -112,6 +113,7 @@ export function Settings({ open, onOpenChange }) {
           suggestDatabase:  toBool(data.suggestDatabase, true),
           useContainerNames: toBool(data.useContainerNames, false),
           useTraefikLabels:  toBool(data.useTraefikLabels, true),
+          groupByContainer:  toBool(data.groupByContainer, false),
         });
       });
   }, [open]);
@@ -122,7 +124,7 @@ export function Settings({ open, onOpenChange }) {
     try {
       // Serialize booleans to strings for SQLite key-value store
       const payload = { ...form };
-      for (const key of ['suggestHttp', 'suggestPort', 'suggestPing', 'suggestDns', 'suggestDocker', 'suggestDatabase', 'useContainerNames', 'useTraefikLabels']) {
+      for (const key of ['suggestHttp', 'suggestPort', 'suggestPing', 'suggestDns', 'suggestDocker', 'suggestDatabase', 'useContainerNames', 'useTraefikLabels', 'groupByContainer']) {
         payload[key] = String(payload[key]);
       }
       const res = await fetch('/api/settings', {
@@ -318,6 +320,21 @@ export function Settings({ open, onOpenChange }) {
                 </div>
                 <p className="text-xs text-muted-foreground pl-6">
                   Extracts public hostnames from <code className="font-mono">traefik.http.routers.*.rule</code> labels to suggest DNS checks and use real URLs in HTTP monitors.
+                </p>
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="groupByContainer"
+                    checked={!!form.groupByContainer}
+                    onCheckedChange={val => setForm(f => ({ ...f, groupByContainer: !!val }))}
+                  />
+                  <Label htmlFor="groupByContainer" className="text-sm font-normal cursor-pointer">
+                    Group monitors by container
+                  </Label>
+                </div>
+                <p className="text-xs text-muted-foreground pl-6">
+                  Creates a group monitor for each container and nests its monitors inside it. Reuses an existing group if one already exists.
                 </p>
               </div>
             </div>
