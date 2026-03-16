@@ -5,29 +5,33 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 const TYPE_META = {
-  http:     { label: 'HTTP',      icon: Globe,      color: 'info' },
-  port:     { label: 'TCP Port',  icon: Network,    color: 'secondary' },
-  ping:     { label: 'Ping',      icon: Radio,      color: 'secondary' },
-  dns:      { label: 'DNS',       icon: Search,     color: 'secondary' },
-  docker:   { label: 'Container', icon: Container,  color: 'secondary' },
-  postgres: { label: 'PostgreSQL', icon: Database,  color: 'warning' },
-  mysql:    { label: 'MySQL',     icon: Database,   color: 'warning' },
-  redis:    { label: 'Redis',     icon: Database,   color: 'warning' },
-  mongodb:  { label: 'MongoDB',   icon: Database,   color: 'warning' },
+  http:     { label: 'HTTP',       icon: Globe,     color: 'info',      cardClass: 'border-blue-200   bg-blue-50/40'  },
+  port:     { label: 'TCP Port',   icon: Network,   color: 'secondary', cardClass: 'border-slate-200  bg-slate-50/60' },
+  ping:     { label: 'Ping',       icon: Radio,     color: 'secondary', cardClass: 'border-slate-200  bg-slate-50/60' },
+  dns:      { label: 'DNS',        icon: Search,    color: 'secondary', cardClass: 'border-purple-200 bg-purple-50/40'},
+  docker:   { label: 'Container',  icon: Container, color: 'secondary', cardClass: 'border-cyan-200   bg-cyan-50/40'  },
+  postgres: { label: 'PostgreSQL', icon: Database,  color: 'warning',   cardClass: 'border-amber-200  bg-amber-50/40' },
+  mysql:    { label: 'MySQL',      icon: Database,  color: 'warning',   cardClass: 'border-amber-200  bg-amber-50/40' },
+  redis:    { label: 'Redis',      icon: Database,  color: 'warning',   cardClass: 'border-orange-200 bg-orange-50/40'},
+  mongodb:  { label: 'MongoDB',    icon: Database,  color: 'warning',   cardClass: 'border-green-200  bg-green-50/40' },
 };
 
-function MonitorCard({ suggestion, index, selected, onToggle, editedFields, onFieldChange, connectionString, onConnectionStringChange }) {
+const DEFAULT_META = { label: '', icon: Radio, color: 'secondary', cardClass: 'border-slate-200 bg-slate-50/60' };
+
+function MonitorCard({ suggestion, selected, onToggle, editedFields, onFieldChange, connectionString, onConnectionStringChange }) {
   const [expanded, setExpanded] = useState(suggestion.requiresConnectionString);
-  const meta = TYPE_META[suggestion.type] || { label: suggestion.type, icon: Radio, color: 'secondary' };
+  const meta = TYPE_META[suggestion.type] || DEFAULT_META;
   const Icon = meta.icon;
 
-  const urlField = suggestion.url || suggestion.hostname;
+  // When selected the type-tinted background is replaced by the primary selection tint
+  const cardClass = selected
+    ? 'border-primary/60 bg-primary/5'
+    : meta.cardClass;
 
   return (
-    <div className={`rounded-lg border p-3 transition-colors ${selected ? 'border-primary/60 bg-primary/5' : 'border-border'}`}>
+    <div className={`rounded-lg border p-3 transition-colors ${cardClass}`}>
       <div className="flex items-start gap-3">
         <Checkbox checked={selected} onCheckedChange={onToggle} className="mt-0.5" />
         <div className="flex-1 min-w-0 space-y-2">
@@ -44,7 +48,6 @@ function MonitorCard({ suggestion, index, selected, onToggle, editedFields, onFi
 
           {selected && (
             <div className="space-y-2 pt-1">
-              {/* Editable primary field */}
               {suggestion.type === 'http' && (
                 <div className="space-y-1">
                   <Label className="text-xs">URL</Label>
@@ -99,8 +102,6 @@ function MonitorCard({ suggestion, index, selected, onToggle, editedFields, onFi
                   <p className="text-xs text-muted-foreground">Requires a Docker Host configured in Uptime Kuma</p>
                 </div>
               )}
-
-              {/* Connection string for DB monitors */}
               {suggestion.requiresConnectionString && (
                 <div className="space-y-1">
                   <Label className="text-xs">Connection String</Label>
@@ -113,8 +114,6 @@ function MonitorCard({ suggestion, index, selected, onToggle, editedFields, onFi
                   <p className="text-xs text-muted-foreground">Leave blank to skip this monitor</p>
                 </div>
               )}
-
-              {/* Monitor name override */}
               <div className="space-y-1">
                 <Label className="text-xs">Monitor Name</Label>
                 <Input
@@ -131,8 +130,68 @@ function MonitorCard({ suggestion, index, selected, onToggle, editedFields, onFi
   );
 }
 
+function ContainerSection({ cid, suggs, containerName, selectedMonitors, onToggle, editedFields, onFieldChange, connectionStrings, onConnectionStringChange }) {
+  const [open, setOpen] = useState(false);
+  const selectedCount = suggs.filter((_, i) => selectedMonitors[`${cid}_${i}`]).length;
+
+  // Collect the distinct type labels for the summary chips shown when collapsed
+  const typeLabels = [...new Set(suggs.map(s => (TYPE_META[s.type] || DEFAULT_META).label))];
+
+  return (
+    <div className="rounded-lg border border-border overflow-hidden">
+      {/* Collapsible header */}
+      <button
+        className="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-muted/50 transition-colors"
+        onClick={() => setOpen(o => !o)}
+      >
+        <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-xs shrink-0">{cid.slice(0, 12)}</span>
+        <span className="text-muted-foreground text-xs shrink-0">→</span>
+        <span className="font-semibold text-sm truncate">{containerName}</span>
+
+        {/* Type summary chips — hidden when open */}
+        {!open && (
+          <span className="flex items-center gap-1 ml-1 flex-wrap">
+            {typeLabels.map(label => (
+              <span key={label} className="text-xs text-muted-foreground bg-muted rounded px-1.5 py-0.5 leading-none">{label}</span>
+            ))}
+          </span>
+        )}
+
+        <span className="ml-auto flex items-center gap-2 shrink-0">
+          <Badge variant={selectedCount === suggs.length ? 'secondary' : 'outline'} className="text-xs">
+            {selectedCount}/{suggs.length} selected
+          </Badge>
+          {open
+            ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
+            : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+        </span>
+      </button>
+
+      {/* Monitor list */}
+      {open && (
+        <div className="px-3 pb-3 pt-1 space-y-2 border-t border-border">
+          {suggs.map((sugg, i) => {
+            const key = `${cid}_${i}`;
+            return (
+              <MonitorCard
+                key={key}
+                suggestion={sugg}
+                selected={!!selectedMonitors[key]}
+                onToggle={() => onToggle(key)}
+                editedFields={editedFields[key] || {}}
+                onFieldChange={(field, val) => onFieldChange(key, field, val)}
+                connectionString={connectionStrings[key] || ''}
+                onConnectionStringChange={val => onConnectionStringChange(key, val)}
+              />
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function SuggestionReview({ selectedContainerIds, suggestions, containerNames = {}, onBack, onNext, loading }) {
-  // selectedMonitors: { [containerId_index]: boolean }
   const [selectedMonitors, setSelectedMonitors] = useState(() => {
     const init = {};
     for (const [cid, suggs] of Object.entries(suggestions)) {
@@ -141,10 +200,7 @@ export function SuggestionReview({ selectedContainerIds, suggestions, containerN
     return init;
   });
 
-  // editedFields: { [containerId_index]: { fieldName: value } }
   const [editedFields, setEditedFields] = useState({});
-
-  // connectionStrings: { [containerId_index]: string }
   const [connectionStrings, setConnectionStrings] = useState({});
 
   function toggleMonitor(key) {
@@ -164,22 +220,11 @@ export function SuggestionReview({ selectedContainerIds, suggestions, containerN
         const sugg = suggs[i];
         const edits = editedFields[key] || {};
         const connStr = connectionStrings[key] || '';
-
-        // Skip DB monitors without a connection string
         if (sugg.requiresConnectionString && !connStr) continue;
-
         const { description, requiresConnectionString, ...kumaFields } = sugg;
         const merged = { ...kumaFields, ...edits };
-
-        if (sugg.requiresConnectionString) {
-          merged.databaseConnectionString = connStr;
-        }
-
-        monitors.push({
-          containerId: cid,
-          containerName: containerNames[cid] || cid,
-          ...merged,
-        });
+        if (sugg.requiresConnectionString) merged.databaseConnectionString = connStr;
+        monitors.push({ containerId: cid, containerName: containerNames[cid] || cid, ...merged });
       }
     }
     return monitors;
@@ -189,34 +234,20 @@ export function SuggestionReview({ selectedContainerIds, suggestions, containerN
   const totalSelected = Object.values(selectedMonitors).filter(Boolean).length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {containerEntries.map(([cid, suggs]) => (
-        <div key={cid} className="space-y-2">
-          <h3 className="font-semibold text-sm flex items-center gap-2">
-            <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-xs">{cid.slice(0, 12)}</span>
-            <span className="text-muted-foreground">→</span>
-            <span>{containerNames[cid] || suggs[0]?.name?.split(' - ')[0] || cid}</span>
-            <Badge variant="secondary" className="ml-auto">{suggs.length} suggestion{suggs.length !== 1 ? 's' : ''}</Badge>
-          </h3>
-          <div className="space-y-2 pl-2">
-            {suggs.map((sugg, i) => {
-              const key = `${cid}_${i}`;
-              return (
-                <MonitorCard
-                  key={key}
-                  suggestion={sugg}
-                  index={i}
-                  selected={!!selectedMonitors[key]}
-                  onToggle={() => toggleMonitor(key)}
-                  editedFields={editedFields[key] || {}}
-                  onFieldChange={(field, val) => setField(key, field, val)}
-                  connectionString={connectionStrings[key] || ''}
-                  onConnectionStringChange={val => setConnectionStrings(s => ({ ...s, [key]: val }))}
-                />
-              );
-            })}
-          </div>
-        </div>
+        <ContainerSection
+          key={cid}
+          cid={cid}
+          suggs={suggs}
+          containerName={containerNames[cid] || suggs[0]?.name?.split(' - ')[0] || cid}
+          selectedMonitors={selectedMonitors}
+          onToggle={toggleMonitor}
+          editedFields={editedFields}
+          onFieldChange={setField}
+          connectionStrings={connectionStrings}
+          onConnectionStringChange={(key, val) => setConnectionStrings(s => ({ ...s, [key]: val }))}
+        />
       ))}
 
       <div className="flex items-center justify-between pt-2">
