@@ -21,8 +21,8 @@ function connectAndLogin(url, username, password) {
 
     const timeout = setTimeout(() => {
       socket.disconnect();
-      reject(new Error('Connection to Uptime Kuma timed out after 10 seconds'));
-    }, 10000);
+      reject(new Error('Connection to Uptime Kuma timed out after 15 seconds'));
+    }, 15000);
 
     socket.on('connect_error', (err) => {
       clearTimeout(timeout);
@@ -31,13 +31,18 @@ function connectAndLogin(url, username, password) {
 
     socket.on('connect', () => {
       socket.emit('login', { username, password, token: '' }, (result) => {
-        clearTimeout(timeout);
-        if (result.ok) {
-          resolve(socket);
-        } else {
+        if (!result.ok) {
+          clearTimeout(timeout);
           socket.disconnect();
           reject(new Error(result.msg || 'Uptime Kuma login failed. Check credentials.'));
+          return;
         }
+        // Wait for monitorList — Kuma's signal that initial state sync is complete
+        // and the server is ready to process commands like addMonitor.
+        socket.once('monitorList', (data) => {
+          clearTimeout(timeout);
+          resolve({ socket, monitorList: data || {} });
+        });
       });
     });
   });
@@ -45,14 +50,14 @@ function connectAndLogin(url, username, password) {
 
 async function testConnection() {
   const { url, username, password } = getKumaSettings();
-  const socket = await connectAndLogin(url, username, password);
+  const { socket } = await connectAndLogin(url, username, password);
   socket.disconnect();
   return { ok: true };
 }
 
-async function addMonitors(monitors) {
+async function addMonitors(monitors, options = {}) {
   const { url, username, password } = getKumaSettings();
-  const socket = await connectAndLogin(url, username, password);
+  const { socket, monitorList } = await connectAndLogin(url, username, password);
 
   const results = [];
 
@@ -60,10 +65,19 @@ async function addMonitors(monitors) {
     for (const monitor of monitors) {
       const { containerId, containerName, ...monitorData } = monitor;
       try {
-        const payload = { maxretries: 1, retryInterval: 60, ...monitorData };
+        const payload = {
+            maxretries: 1,
+            retryInterval: 60,
+            accepted_statuscodes: ['200-299'],
+            notificationIDList: {},
+            kafkaProducerBrokers: [],
+            kafkaProducerSaslOptions: {},
+            ...monitorData,
+          };
         const result = await new Promise((resolve, reject) => {
-          const timeout = setTimeout(() => reject(new Error('Timed out waiting for Kuma response')), 10000);
-          socket.emit('addMonitor', payload, (res) => {
+          const timeout = setTimeout(() => reject(new Error('Timed out waiting for Kuma response')), 30000);
+          // Uptime Kuma v1 uses "add" (not "addMonitor") for the socket event
+          socket.emit('add', payload, (res) => {
             clearTimeout(timeout);
             if (res.ok) {
               resolve({ ok: true, monitorID: res.monitorID });
