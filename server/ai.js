@@ -4,6 +4,8 @@ const { createOpenAI } = require('@ai-sdk/openai');
 const { createGoogleGenerativeAI } = require('@ai-sdk/google');
 const { createOllama } = require('ollama-ai-provider');
 const { getSetting } = require('./db');
+const { generateProgrammaticSuggestions, needsAI } = require('./programmatic');
+const { getTraefikRouters } = require('./traefik');
 
 const DEFAULT_MODELS = {
   anthropic: 'claude-opus-4-6',
@@ -47,7 +49,7 @@ function getModel() {
   }
 }
 
-const SYSTEM_PROMPT = `You are an expert at configuring Uptime Kuma monitoring for Docker containers.
+const BASE_SYSTEM_PROMPT = `You are an expert at configuring Uptime Kuma monitoring for Docker containers.
 
 Given a list of Docker containers with their metadata, suggest appropriate Uptime Kuma health check monitors for each one.
 
@@ -56,10 +58,18 @@ Available Uptime Kuma monitor types and their required fields:
 - "port": TCP port check. Fields: hostname (string), port (number)
 - "ping": ICMP ping check. Fields: hostname (string)
 - "dns": DNS resolution check. Fields: hostname (string), dns_resolve_server ("1.1.1.1"), dns_resolve_type ("A")
+- "docker": Docker container status check. Fields: dockerContainer (container name string), dockerHost (null). Use this to verify the container itself is running.
 - "postgres": PostgreSQL check. Fields: databaseConnectionString (template e.g. "postgres://user:password@hostname:5432/dbname")
 - "mysql": MySQL/MariaDB check. Fields: databaseConnectionString (template e.g. "mysql://user:password@hostname:3306/dbname")
 - "redis": Redis check. Fields: databaseConnectionString (e.g. "redis://hostname:6379")
 - "mongodb": MongoDB check. Fields: databaseConnectionString (e.g. "mongodb://hostname:27017")
+
+## Traefik routers
+Some containers will include a "traefikRouters" array, discovered from their Docker labels. Each entry has:
+- scheme: "http" or "https" (from tls/entrypoints labels)
+- hostnames: array of public hostnames from Host() rules
+
+When traefikRouters is present, use the real public hostnames for HTTP monitor URLs instead of localhost. For example, if scheme is "https" and hostname is "myapp.example.com", the HTTP check URL should be "https://myapp.example.com/health" (or the known health path for the image). Prefer traefikRouters hostnames over localhost for HTTP checks.
 
 ## OpenAPI specs
 Some containers will include an "openApiSpecs" array. Each entry was discovered by probing the container's HTTP ports and contains:
@@ -74,10 +84,6 @@ When openApiSpecs is present, treat it as the highest-priority source of truth f
 3. If no dedicated health path exists in the spec, pick the most meaningful root-level GET endpoint as the HTTP check.
 4. Prefer openApiSpecs data over image-name heuristics when they conflict — the spec is ground truth.
 5. Still suggest a ping check regardless.
-
-## Hostname rules
-- For host-mapped ports (hostPort is non-null): use "localhost" and the hostPort
-- For container-only ports (hostPort is null): use the container name and the containerPort
 
 ## Health endpoint knowledge
 Always prefer a specific health/readiness endpoint over the root path when one is known for the image.
@@ -141,17 +147,10 @@ Use this knowledge to suggest the best HTTP check URL:
 - PHP/Laravel → /up, /health
 - Rust apps → /health, /healthz
 
-## Rules
-1. Always suggest at least a ping check for every container.
-2. For any container with an HTTP port, suggest at least one HTTP check. Use the most specific health path you know for the image; if uncertain, suggest /health as the primary and note it may need adjusting.
-3. If a container likely exposes Prometheus metrics (image name contains "exporter", labels contain "prometheus.io/scrape=true", or envKeys include "METRICS_PORT"), add a separate /metrics HTTP check.
-4. For databases (postgres, mysql, mariadb, redis, mongo, mongodb): suggest a TCP port check AND a database-type monitor (requiresConnectionString: true).
-5. Do not suggest both a root "/" check and a specific health path — pick the most useful one unless they serve clearly different purposes (e.g. /actuator/health is different from the app root).
-6. Database connection string templates: use "localhost" for host-mapped ports, container name otherwise.
-7. Monitor names: "[ContainerName] - [CheckType]" (e.g. "my-app - Health", "my-app - Metrics", "my-postgres - TCP Port").
-8. Set interval to 60 for all monitors.
-
 For database monitors, set requiresConnectionString: true so the UI can prompt the user.
+
+Monitor names: "[ContainerName] - [CheckType]" (e.g. "my-app - Health", "my-app - Metrics", "my-postgres - TCP Port", "my-nginx - Container").
+Set interval to 60 for all monitors.
 
 Respond ONLY with a valid JSON object. No markdown, no explanation. Format:
 {
@@ -166,18 +165,78 @@ Respond ONLY with a valid JSON object. No markdown, no explanation. Format:
       "method": "GET"
     },
     {
-      "type": "http",
-      "name": "my-app - Metrics",
-      "description": "Prometheus metrics endpoint",
+      "type": "docker",
+      "name": "my-app - Container",
+      "description": "Docker container running status",
       "interval": 60,
       "requiresConnectionString": false,
-      "url": "http://localhost:8080/metrics",
-      "method": "GET"
+      "dockerContainer": "my-app",
+      "dockerHost": null
     }
   ]
 }`;
 
-async function suggestMonitors(containers) {
+function buildSystemPrompt(settings) {
+  const {
+    suggestHttp = true,
+    suggestPort = true,
+    suggestPing = true,
+    suggestDns = false,
+    suggestDocker = true,
+    suggestDatabase = true,
+    useContainerNames = false,
+  } = settings || {};
+
+  const enabled = [];
+  if (suggestHttp) enabled.push('"http"');
+  if (suggestPort) enabled.push('"port"');
+  if (suggestPing) enabled.push('"ping"');
+  if (suggestDns) enabled.push('"dns"');
+  if (suggestDocker) enabled.push('"docker"');
+  if (suggestDatabase) enabled.push('"postgres", "mysql", "redis", "mongodb"');
+
+  const hostnameRule = useContainerNames
+    ? '## Hostname rules\n- For ALL ports (host-mapped or container-only): use the container name as the hostname and the containerPort for port/ping/http checks. This is because Uptime Kuma runs in the same Docker network and can reach containers by name.'
+    : '## Hostname rules\n- For host-mapped ports (hostPort is non-null): use "localhost" and the hostPort\n- For container-only ports (hostPort is null): use the container name and the containerPort';
+
+  const typeConstraint = enabled.length > 0
+    ? `\n## IMPORTANT: Only suggest these monitor types: ${enabled.join(', ')}. Do NOT suggest any other types.`
+    : '\n## IMPORTANT: No monitor types are enabled. Return an empty array for every container.';
+
+  const rules = [];
+  if (suggestPing) rules.push('- Always suggest a ping check for every container.');
+  if (suggestDocker) rules.push('- Always suggest a docker container status check for every container, using the container name as dockerContainer and dockerHost: null.');
+  if (suggestHttp) rules.push('- For any container with an HTTP port, suggest at least one HTTP check using the most specific health path you know for the image.');
+  if (suggestHttp) rules.push('- If a container likely exposes Prometheus metrics (image name contains "exporter", labels contain "prometheus.io/scrape=true", or envKeys contain "METRICS_PORT"), add a /metrics HTTP check.');
+  if (suggestPort) rules.push('- For any container with an exposed port, suggest a TCP port check.');
+  if (suggestDatabase) rules.push('- For databases (postgres, mysql, mariadb, redis, mongo, mongodb): suggest a TCP port check AND a database-type monitor (requiresConnectionString: true).');
+  if (!suggestDns) rules.push('- Do NOT suggest dns monitors.');
+  if (!suggestHttp) rules.push('- Do NOT suggest http monitors.');
+  if (!suggestPort) rules.push('- Do NOT suggest port monitors.');
+  if (!suggestPing) rules.push('- Do NOT suggest ping monitors.');
+  if (!suggestDocker) rules.push('- Do NOT suggest docker monitors.');
+  if (!suggestDatabase) rules.push('- Do NOT suggest postgres/mysql/redis/mongodb monitors.');
+
+  const dbHostname = useContainerNames ? 'container name' : '"localhost" for host-mapped ports, container name otherwise';
+  if (suggestDatabase) rules.push(`- Database connection string templates: use ${dbHostname}.`);
+
+  return BASE_SYSTEM_PROMPT
+    .replace('## Health endpoint knowledge', `${hostnameRule}\n\n${typeConstraint}\n\n## Rules\n${rules.join('\n')}\n\n## Health endpoint knowledge`);
+}
+
+async function suggestMonitors(containers, settings) {
+  // Always generate deterministic suggestions for docker/port/ping
+  const programmatic = generateProgrammaticSuggestions(containers, settings);
+
+  // If no AI-dependent types are enabled, skip the AI call entirely
+  if (!needsAI(settings)) {
+    return programmatic;
+  }
+
+  // Tell the AI to only handle the types it's actually good at;
+  // docker/port/ping are already handled above
+  const aiSettings = { ...settings, suggestDocker: false, suggestPort: false, suggestPing: false };
+
   const model = getModel();
 
   const containerList = containers.map(c => {
@@ -199,22 +258,41 @@ async function suggestMonitors(containers) {
         endpoints: s.endpoints,
       }));
     }
+    // Include Traefik-discovered hostnames so AI can use real URLs instead of localhost
+    if (aiSettings.useTraefikLabels) {
+      const routers = getTraefikRouters(c.labels || {});
+      if (routers.length > 0) {
+        entry.traefikRouters = routers.map(r => ({ scheme: r.scheme, hostnames: r.hostnames }));
+      }
+    }
     return entry;
   });
 
   const { text } = await generateText({
     model,
-    system: SYSTEM_PROMPT,
+    system: buildSystemPrompt(aiSettings),
     prompt: `Please suggest Uptime Kuma health check monitors for these Docker containers:\n\n${JSON.stringify(containerList, null, 2)}`,
   });
 
+  let aiResult;
   try {
-    return JSON.parse(text);
+    aiResult = JSON.parse(text);
   } catch {
     const match = text.match(/\{[\s\S]*\}/);
-    if (match) return JSON.parse(match[0]);
-    throw new Error('AI returned invalid JSON. Please try again.');
+    if (match) aiResult = JSON.parse(match[0]);
+    else throw new Error('AI returned invalid JSON. Please try again.');
   }
+
+  // Merge: programmatic suggestions first, AI suggestions appended after
+  const merged = { ...programmatic };
+  for (const [cid, aiSuggs] of Object.entries(aiResult)) {
+    if (merged[cid]) {
+      merged[cid] = [...merged[cid], ...aiSuggs];
+    } else {
+      merged[cid] = aiSuggs;
+    }
+  }
+  return merged;
 }
 
-module.exports = { suggestMonitors };
+module.exports = { suggestMonitors, needsAI };

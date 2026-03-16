@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, Database, Globe, Network, Radio, Search, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Database, Globe, Network, Radio, Search, Loader2, Container } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
@@ -8,14 +8,15 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 const TYPE_META = {
-  http:     { label: 'HTTP',     icon: Globe,    color: 'info' },
-  port:     { label: 'TCP Port', icon: Network,  color: 'secondary' },
-  ping:     { label: 'Ping',     icon: Radio,    color: 'secondary' },
-  dns:      { label: 'DNS',      icon: Search,   color: 'secondary' },
-  postgres: { label: 'PostgreSQL', icon: Database, color: 'warning' },
-  mysql:    { label: 'MySQL',    icon: Database, color: 'warning' },
-  redis:    { label: 'Redis',    icon: Database, color: 'warning' },
-  mongodb:  { label: 'MongoDB',  icon: Database, color: 'warning' },
+  http:     { label: 'HTTP',      icon: Globe,      color: 'info' },
+  port:     { label: 'TCP Port',  icon: Network,    color: 'secondary' },
+  ping:     { label: 'Ping',      icon: Radio,      color: 'secondary' },
+  dns:      { label: 'DNS',       icon: Search,     color: 'secondary' },
+  docker:   { label: 'Container', icon: Container,  color: 'secondary' },
+  postgres: { label: 'PostgreSQL', icon: Database,  color: 'warning' },
+  mysql:    { label: 'MySQL',     icon: Database,   color: 'warning' },
+  redis:    { label: 'Redis',     icon: Database,   color: 'warning' },
+  mongodb:  { label: 'MongoDB',   icon: Database,   color: 'warning' },
 };
 
 function MonitorCard({ suggestion, index, selected, onToggle, editedFields, onFieldChange, connectionString, onConnectionStringChange }) {
@@ -85,6 +86,17 @@ function MonitorCard({ suggestion, index, selected, onToggle, editedFields, onFi
                     value={editedFields.dns_resolve_server ?? suggestion.dns_resolve_server ?? '1.1.1.1'}
                     onChange={e => onFieldChange('dns_resolve_server', e.target.value)}
                   />
+                </div>
+              )}
+              {suggestion.type === 'docker' && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Container Name</Label>
+                  <Input
+                    className="h-7 text-xs font-mono"
+                    value={editedFields.dockerContainer ?? suggestion.dockerContainer ?? ''}
+                    onChange={e => onFieldChange('dockerContainer', e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">Requires a Docker Host configured in Uptime Kuma</p>
                 </div>
               )}
 

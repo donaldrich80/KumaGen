@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Settings2, Loader2, CheckCircle2, XCircle, RefreshCw, Bot } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Settings2, HelpCircle, Loader2, CheckCircle2, XCircle, RefreshCw, Bot, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -8,6 +8,7 @@ import { StepIndicator } from '@/components/StepIndicator';
 import { ContainerList } from '@/components/ContainerList';
 import { SuggestionReview } from '@/components/SuggestionReview';
 import { Settings } from '@/components/Settings';
+import { Help } from '@/components/Help';
 
 export default function App() {
   const [step, setStep] = useState(1);
@@ -19,6 +20,16 @@ export default function App() {
   const [suggestionError, setSuggestionError] = useState(null);
   const [addResults, setAddResults] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [aiStatus, setAiStatus] = useState({ required: false, ready: true });
+
+  function fetchAiStatus() {
+    fetch('/api/settings/ai-status').then(r => r.json()).then(setAiStatus).catch(() => {});
+  }
+
+  useEffect(() => { fetchAiStatus(); }, []);
+  // Refresh status whenever settings dialog closes
+  useEffect(() => { if (!settingsOpen) fetchAiStatus(); }, [settingsOpen]);
 
   async function handleGenerateSuggestions() {
     setLoadingSuggestions(true);
@@ -74,16 +85,33 @@ export default function App() {
           <div className="flex items-center gap-2">
             <Bot className="h-6 w-6 text-primary" />
             <h1 className="text-xl font-bold">KumaGen</h1>
-            <span className="text-xs text-muted-foreground mt-0.5">AI-powered Uptime Kuma monitor generator</span>
+            <span className="text-xs text-muted-foreground mt-0.5">Uptime Kuma monitor generator</span>
           </div>
-          <Button variant="ghost" size="icon" onClick={() => setSettingsOpen(true)}>
-            <Settings2 className="h-5 w-5" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" onClick={() => setHelpOpen(true)}>
+              <HelpCircle className="h-5 w-5" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={() => setSettingsOpen(true)}>
+              <Settings2 className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-8 space-y-8">
         <StepIndicator currentStep={step} />
+
+        {/* AI not configured warning */}
+        {aiStatus.required && !aiStatus.ready && !loadingSuggestions && (
+          <Alert>
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              HTTP, DNS, or database monitors are enabled but no AI API key is configured.{' '}
+              <button className="underline font-medium" onClick={() => setSettingsOpen(true)}>Open Settings</button>{' '}
+              to add a key, or disable those monitor types to proceed without AI.
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Suggestion loading overlay */}
         {loadingSuggestions && (
@@ -91,8 +119,12 @@ export default function App() {
             <CardContent className="flex items-center justify-center gap-3 py-12">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
               <div>
-                <p className="font-semibold">Analyzing containers with AI...</p>
-                <p className="text-sm text-muted-foreground">Claude is generating monitor suggestions</p>
+                <p className="font-semibold">
+                  {aiStatus.required ? 'Analyzing containers with AI…' : 'Generating monitor suggestions…'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {aiStatus.required ? 'AI is generating HTTP/database monitor suggestions' : 'Building suggestions from container metadata'}
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -132,7 +164,9 @@ export default function App() {
             <CardHeader>
               <CardTitle>Review Suggestions</CardTitle>
               <CardDescription>
-                AI has suggested the following monitors. Select, edit, and confirm before adding to Uptime Kuma.
+                {aiStatus.required
+                  ? 'AI has suggested the following monitors. Select, edit, and confirm before adding to Uptime Kuma.'
+                  : 'The following monitors were generated from your container metadata. Select, edit, and confirm before adding to Uptime Kuma.'}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -184,6 +218,7 @@ export default function App() {
       </main>
 
       <Settings open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <Help open={helpOpen} onOpenChange={setHelpOpen} />
     </div>
   );
 }

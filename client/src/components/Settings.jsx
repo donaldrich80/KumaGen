@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Settings2, CheckCircle, XCircle, Loader2, ExternalLink } from 'lucide-react';
+import { Settings2, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -72,6 +73,14 @@ export function Settings({ open, onOpenChange }) {
     aiApiKey: '',
     aiModel: '',
     aiBaseUrl: '',
+    suggestHttp: true,
+    suggestPort: true,
+    suggestPing: true,
+    suggestDns: false,
+    suggestDocker: true,
+    suggestDatabase: true,
+    useContainerNames: false,
+    useTraefikLabels: true,
   });
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -85,6 +94,7 @@ export function Settings({ open, onOpenChange }) {
     fetch('/api/settings')
       .then(r => r.json())
       .then(data => {
+        const toBool = (val, def) => val === undefined || val === null ? def : val !== 'false';
         setForm({
           kumaUrl: data.kumaUrl || '',
           kumaUsername: data.kumaUsername || '',
@@ -94,6 +104,14 @@ export function Settings({ open, onOpenChange }) {
           aiApiKey: data.aiApiKey || (data.aiProvider === 'anthropic' || !data.aiProvider ? (data.anthropicApiKey || '') : '') || '',
           aiModel: data.aiModel || '',
           aiBaseUrl: data.aiBaseUrl || '',
+          suggestHttp:      toBool(data.suggestHttp, true),
+          suggestPort:      toBool(data.suggestPort, true),
+          suggestPing:      toBool(data.suggestPing, true),
+          suggestDns:       toBool(data.suggestDns, false),
+          suggestDocker:    toBool(data.suggestDocker, true),
+          suggestDatabase:  toBool(data.suggestDatabase, true),
+          useContainerNames: toBool(data.useContainerNames, false),
+          useTraefikLabels:  toBool(data.useTraefikLabels, true),
         });
       });
   }, [open]);
@@ -102,10 +120,15 @@ export function Settings({ open, onOpenChange }) {
     setSaving(true);
     setSaveResult(null);
     try {
+      // Serialize booleans to strings for SQLite key-value store
+      const payload = { ...form };
+      for (const key of ['suggestHttp', 'suggestPort', 'suggestPing', 'suggestDns', 'suggestDocker', 'suggestDatabase', 'useContainerNames', 'useTraefikLabels']) {
+        payload[key] = String(payload[key]);
+      }
       const res = await fetch('/api/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       setSaveResult({ ok: data.ok, message: data.ok ? 'Settings saved.' : 'Failed to save.' });
@@ -132,7 +155,7 @@ export function Settings({ open, onOpenChange }) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings2 className="h-5 w-5" /> Settings
@@ -237,38 +260,66 @@ export function Settings({ open, onOpenChange }) {
                 value={form.aiModel}
                 onChange={e => setForm(f => ({ ...f, aiModel: e.target.value }))}
               />
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">
-                  Leave blank to use the default{providerMeta.defaultModel ? ` (${providerMeta.defaultModel})` : ''}.
-                </p>
-                {providerMeta.links?.length === 1 && (
-                  <a
-                    href={providerMeta.links[0].url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-primary flex items-center gap-1 hover:underline"
-                  >
-                    {providerMeta.links[0].label}
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                )}
-              </div>
-              {providerMeta.links?.length > 1 && (
-                <div className="flex flex-wrap gap-x-3 gap-y-1 pt-0.5">
-                  {providerMeta.links.map(link => (
-                    <a
-                      key={link.url}
-                      href={link.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-primary flex items-center gap-1 hover:underline"
-                    >
-                      {link.label}
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  ))}
+              <p className="text-xs text-muted-foreground">
+                Leave blank to use the default{providerMeta.defaultModel ? ` (${providerMeta.defaultModel})` : ''}. See Help for model links.
+              </p>
+            </div>
+          </div>
+
+          {/* Monitor Suggestions section */}
+          <div className="space-y-3">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Monitor Suggestions</h3>
+            <p className="text-xs text-muted-foreground">Choose which types of monitors the AI should suggest.</p>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { key: 'suggestHttp',     label: 'HTTP / HTTPS' },
+                { key: 'suggestPort',     label: 'TCP Port' },
+                { key: 'suggestPing',     label: 'Ping' },
+                { key: 'suggestDns',      label: 'DNS' },
+                { key: 'suggestDocker',   label: 'Docker Container' },
+                { key: 'suggestDatabase', label: 'Database' },
+              ].map(({ key, label }) => (
+                <div key={key} className="flex items-center gap-2">
+                  <Checkbox
+                    id={key}
+                    checked={!!form[key]}
+                    onCheckedChange={val => setForm(f => ({ ...f, [key]: !!val }))}
+                  />
+                  <Label htmlFor={key} className="text-sm font-normal cursor-pointer">{label}</Label>
                 </div>
-              )}
+              ))}
+            </div>
+            <div className="pt-1 space-y-3">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="useContainerNames"
+                    checked={!!form.useContainerNames}
+                    onCheckedChange={val => setForm(f => ({ ...f, useContainerNames: !!val }))}
+                  />
+                  <Label htmlFor="useContainerNames" className="text-sm font-normal cursor-pointer">
+                    Use container names instead of localhost
+                  </Label>
+                </div>
+                <p className="text-xs text-muted-foreground pl-6">
+                  Enable when Uptime Kuma runs in the same Docker network (e.g. <code className="font-mono">test-nginx:80</code> instead of <code className="font-mono">localhost:8080</code>).
+                </p>
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="useTraefikLabels"
+                    checked={!!form.useTraefikLabels}
+                    onCheckedChange={val => setForm(f => ({ ...f, useTraefikLabels: !!val }))}
+                  />
+                  <Label htmlFor="useTraefikLabels" className="text-sm font-normal cursor-pointer">
+                    Read Traefik labels for hostname discovery
+                  </Label>
+                </div>
+                <p className="text-xs text-muted-foreground pl-6">
+                  Extracts public hostnames from <code className="font-mono">traefik.http.routers.*.rule</code> labels to suggest DNS checks and use real URLs in HTTP monitors.
+                </p>
+              </div>
             </div>
           </div>
 
