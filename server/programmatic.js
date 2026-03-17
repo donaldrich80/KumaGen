@@ -6,12 +6,38 @@
  */
 
 const { getTraefikRouters } = require('./traefik');
+const { getKnownEndpoints } = require('./health-endpoints');
+
+/** Returns the best HTTP base URL for a container given settings. */
+function resolveHttpBase(c, settings) {
+  const { useContainerNames = false, preferPublicUrl = false, useTraefikLabels = true } = settings || {};
+
+  if (preferPublicUrl && useTraefikLabels) {
+    const routers = getTraefikRouters(c.labels || {});
+    if (routers.length > 0) {
+      const r = routers[0];
+      const scheme = r.scheme || 'https';
+      const hostname = r.hostnames && r.hostnames[0];
+      if (hostname) return `${scheme}://${hostname}`;
+    }
+  }
+
+  const tcpPorts = (c.ports || []).filter(p => p.protocol === 'tcp');
+  if (tcpPorts.length === 0) return null;
+
+  const port = useContainerNames
+    ? tcpPorts[0].containerPort
+    : (tcpPorts[0].hostPort ?? tcpPorts[0].containerPort);
+  const hostname = useContainerNames ? c.name : 'localhost';
+  return `http://${hostname}:${port}`;
+}
 
 function generateProgrammaticSuggestions(containers, settings) {
   const {
     suggestDocker = true,
     suggestPort = true,
     suggestPing = true,
+    suggestHttp = true,
     useContainerNames = false,
     useTraefikLabels = true,
   } = settings || {};
@@ -84,6 +110,27 @@ function generateProgrammaticSuggestions(containers, settings) {
             dns_resolve_server: '1.1.1.1',
             dns_resolve_type: 'A',
           });
+        }
+      }
+    }
+
+    // HTTP suggestions from static lookup table for known images
+    if (suggestHttp) {
+      const endpoints = getKnownEndpoints(c.image);
+      if (endpoints.length > 0) {
+        const base = resolveHttpBase(c, settings);
+        if (base) {
+          for (const { path, description } of endpoints) {
+            suggestions.push({
+              type: 'http',
+              name: `${c.name} - ${description}`,
+              description,
+              interval: 60,
+              requiresConnectionString: false,
+              url: `${base}${path}`,
+              method: 'GET',
+            });
+          }
         }
       }
     }

@@ -185,6 +185,7 @@ function buildSystemPrompt(settings) {
     suggestDocker = true,
     suggestDatabase = true,
     useContainerNames = false,
+    preferPublicUrl = false,
   } = settings || {};
 
   const enabled = [];
@@ -206,6 +207,7 @@ function buildSystemPrompt(settings) {
   const rules = [];
   if (suggestPing) rules.push('- Always suggest a ping check for every container.');
   if (suggestDocker) rules.push('- Always suggest a docker container status check for every container, using the container name as dockerContainer and dockerHost: null.');
+  if (suggestHttp && preferPublicUrl) rules.push('- IMPORTANT: When traefikRouters is present for a container, you MUST use the public hostname from traefikRouters for ALL HTTP monitor URLs. Do NOT use localhost or container name for HTTP checks when a public URL is available.');
   if (suggestHttp) rules.push('- For any container with an HTTP port, suggest at least one HTTP check using the most specific health path you know for the image.');
   if (suggestHttp) rules.push('- If a container likely exposes Prometheus metrics (image name contains "exporter", labels contain "prometheus.io/scrape=true", or envKeys contain "METRICS_PORT"), add a /metrics HTTP check.');
   if (suggestPort) rules.push('- For any container with an exposed port, suggest a TCP port check.');
@@ -283,11 +285,17 @@ async function suggestMonitors(containers, settings) {
     else throw new Error('AI returned invalid JSON. Please try again.');
   }
 
-  // Merge: programmatic suggestions first, AI suggestions appended after
+  // Merge: programmatic suggestions first, AI suggestions appended after (deduplicate HTTP by URL)
   const merged = { ...programmatic };
   for (const [cid, aiSuggs] of Object.entries(aiResult)) {
     if (merged[cid]) {
-      merged[cid] = [...merged[cid], ...aiSuggs];
+      const existingUrls = new Set(
+        merged[cid].filter(s => s.type === 'http' && s.url).map(s => s.url.toLowerCase())
+      );
+      const dedupedAi = aiSuggs.filter(
+        s => s.type !== 'http' || !s.url || !existingUrls.has(s.url.toLowerCase())
+      );
+      merged[cid] = [...merged[cid], ...dedupedAi];
     } else {
       merged[cid] = aiSuggs;
     }

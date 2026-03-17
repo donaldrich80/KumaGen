@@ -82,6 +82,7 @@ export function Settings({ open, onOpenChange }) {
     useContainerNames: false,
     useTraefikLabels: true,
     groupByContainer: false,
+    preferPublicUrl: false,
   });
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -114,6 +115,7 @@ export function Settings({ open, onOpenChange }) {
           useContainerNames: toBool(data.useContainerNames, false),
           useTraefikLabels:  toBool(data.useTraefikLabels, true),
           groupByContainer:  toBool(data.groupByContainer, false),
+          preferPublicUrl:   toBool(data.preferPublicUrl, false),
         });
       });
   }, [open]);
@@ -124,7 +126,7 @@ export function Settings({ open, onOpenChange }) {
     try {
       // Serialize booleans to strings for SQLite key-value store
       const payload = { ...form };
-      for (const key of ['suggestHttp', 'suggestPort', 'suggestPing', 'suggestDns', 'suggestDocker', 'suggestDatabase', 'useContainerNames', 'useTraefikLabels', 'groupByContainer']) {
+      for (const key of ['suggestHttp', 'suggestPort', 'suggestPing', 'suggestDns', 'suggestDocker', 'suggestDatabase', 'useContainerNames', 'useTraefikLabels', 'groupByContainer', 'preferPublicUrl']) {
         payload[key] = String(payload[key]);
       }
       const res = await fetch('/api/settings', {
@@ -271,23 +273,32 @@ export function Settings({ open, onOpenChange }) {
           {/* Monitor Suggestions section */}
           <div className="space-y-3">
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Monitor Suggestions</h3>
-            <p className="text-xs text-muted-foreground">Choose which types of monitors the AI should suggest.</p>
+            <p className="text-xs text-muted-foreground">
+              Choose which monitor types to suggest. Types marked{' '}
+              <span className="text-[10px] font-semibold px-1 py-0.5 rounded bg-violet-950/60 border border-violet-700/50 text-violet-300 leading-none">AI</span>{' '}
+              require an AI API key.
+            </p>
             <div className="grid grid-cols-2 gap-2">
               {[
-                { key: 'suggestHttp',     label: 'HTTP / HTTPS' },
-                { key: 'suggestPort',     label: 'TCP Port' },
-                { key: 'suggestPing',     label: 'Ping' },
-                { key: 'suggestDns',      label: 'DNS' },
-                { key: 'suggestDocker',   label: 'Docker Container' },
-                { key: 'suggestDatabase', label: 'Database' },
-              ].map(({ key, label }) => (
+                { key: 'suggestHttp',     label: 'HTTP / HTTPS',    needsAI: true },
+                { key: 'suggestPort',     label: 'TCP Port',        needsAI: false },
+                { key: 'suggestPing',     label: 'Ping',            needsAI: false },
+                { key: 'suggestDns',      label: 'DNS',             needsAI: true },
+                { key: 'suggestDocker',   label: 'Docker Container', needsAI: false },
+                { key: 'suggestDatabase', label: 'Database',        needsAI: true },
+              ].map(({ key, label, needsAI: requiresAI }) => (
                 <div key={key} className="flex items-center gap-2">
                   <Checkbox
                     id={key}
                     checked={!!form[key]}
                     onCheckedChange={val => setForm(f => ({ ...f, [key]: !!val }))}
                   />
-                  <Label htmlFor={key} className="text-sm font-normal cursor-pointer">{label}</Label>
+                  <Label htmlFor={key} className="text-sm font-normal cursor-pointer flex items-center gap-1.5">
+                    {label}
+                    {requiresAI && (
+                      <span className="text-[10px] font-semibold px-1 py-0.5 rounded bg-violet-950/60 border border-violet-700/50 text-violet-300 leading-none">AI</span>
+                    )}
+                  </Label>
                 </div>
               ))}
             </div>
@@ -335,6 +346,23 @@ export function Settings({ open, onOpenChange }) {
                 </div>
                 <p className="text-xs text-muted-foreground pl-6">
                   Creates a group monitor for each container and nests its monitors inside it. Reuses an existing group if one already exists.
+                </p>
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="preferPublicUrl"
+                    checked={!!form.preferPublicUrl}
+                    onCheckedChange={val => setForm(f => ({ ...f, preferPublicUrl: !!val }))}
+                  />
+                  <Label htmlFor="preferPublicUrl" className="text-sm font-normal cursor-pointer">
+                    Use Traefik public URL for HTTP monitors
+                  </Label>
+                </div>
+                <p className="text-xs text-muted-foreground pl-6">
+                  When Traefik labels are present, HTTP monitors use the discovered public hostname (e.g.{' '}
+                  <code className="font-mono">https://myapp.example.com/health</code>) instead of{' '}
+                  <code className="font-mono">localhost</code> or container name.
                 </p>
               </div>
             </div>
