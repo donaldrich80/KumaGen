@@ -6,6 +6,7 @@ const { createOllama } = require('ollama-ai-provider');
 const { getSetting } = require('./db');
 const { generateProgrammaticSuggestions, needsAI } = require('./programmatic');
 const { getTraefikRouters } = require('./traefik');
+const { enrichDbSuggestions } = require('./db-connection');
 
 const DEFAULT_MODELS = {
   anthropic: 'claude-opus-4-6',
@@ -232,6 +233,7 @@ async function suggestMonitors(containers, settings) {
 
   // If no AI-dependent types are enabled, skip the AI call entirely
   if (!needsAI(settings)) {
+    enrichDbSuggestions(programmatic, containers, settings);
     return programmatic;
   }
 
@@ -300,6 +302,10 @@ async function suggestMonitors(containers, settings) {
       merged[cid] = aiSuggs;
     }
   }
+
+  // Enrich database suggestions with pre-filled connection strings from container env vars
+  enrichDbSuggestions(merged, containers, settings);
+
   return merged;
 }
 

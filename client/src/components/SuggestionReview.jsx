@@ -196,7 +196,17 @@ export function SuggestionReview({ selectedContainerIds, suggestions, containerN
   });
 
   const [editedFields, setEditedFields] = useState({});
-  const [connectionStrings, setConnectionStrings] = useState({});
+  const [connectionStrings, setConnectionStrings] = useState(() => {
+    const init = {};
+    for (const [cid, suggs] of Object.entries(suggestions)) {
+      suggs.forEach((sugg, i) => {
+        if (sugg.requiresConnectionString && sugg.databaseConnectionString) {
+          init[`${cid}_${i}`] = sugg.databaseConnectionString;
+        }
+      });
+    }
+    return init;
+  });
 
   function toggleMonitor(key) {
     setSelectedMonitors(s => ({ ...s, [key]: !s[key] }));

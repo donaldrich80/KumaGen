@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { listContainers, getContainerEnvKeys } = require('../docker');
+const { listContainers, getContainerEnvKeys, getContainerDbEnv } = require('../docker');
 const { getOpenApiSpecs } = require('../openapi');
 const { suggestMonitors, needsAI } = require('../ai');
 const { getSetting } = require('../db');
@@ -31,18 +31,18 @@ router.post('/', async (req, res) => {
       suggestDatabase:  (getSetting('suggestDatabase')  ?? 'true') !== 'false',
       useContainerNames:  (getSetting('useContainerNames')  ?? 'false') !== 'false',
       useTraefikLabels:   (getSetting('useTraefikLabels')   ?? 'true')  !== 'false',
+      preferPublicUrl:    (getSetting('preferPublicUrl')    ?? 'false') !== 'false',
     };
 
-    // Only enrich with env keys and OpenAPI specs if the AI will be invoked;
-    // purely programmatic types (docker/port/ping) don't need this data
+    const isAI = needsAI(monitorSettings);
     const enriched = await Promise.all(
       selected.map(async c => {
-        if (!needsAI(monitorSettings)) return c;
-        const [envKeys, openApiSpecs] = await Promise.all([
-          getContainerEnvKeys(c.id),
-          getOpenApiSpecs(c),
+        const [envKeys, openApiSpecs, dbEnv] = await Promise.all([
+          isAI ? getContainerEnvKeys(c.id) : Promise.resolve([]),
+          isAI ? getOpenApiSpecs(c) : Promise.resolve([]),
+          monitorSettings.suggestDatabase ? getContainerDbEnv(c.id) : Promise.resolve({}),
         ]);
-        return { ...c, envKeys, openApiSpecs };
+        return { ...c, envKeys, openApiSpecs, dbEnv };
       })
     );
 
