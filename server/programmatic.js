@@ -8,6 +8,14 @@
 const { getTraefikRouters } = require('./traefik');
 const { getKnownEndpoints } = require('./health-endpoints');
 
+const DB_TYPES = [
+  { match: 'postgres',  type: 'postgres', label: 'PostgreSQL', defaultPort: 5432, template: (h, p) => `postgres://user:password@${h}:${p}/dbname` },
+  { match: 'mysql',     type: 'mysql',    label: 'MySQL',      defaultPort: 3306, template: (h, p) => `mysql://user:password@${h}:${p}/dbname` },
+  { match: 'mariadb',   type: 'mysql',    label: 'MariaDB',    defaultPort: 3306, template: (h, p) => `mysql://user:password@${h}:${p}/dbname` },
+  { match: 'redis',     type: 'redis',    label: 'Redis',      defaultPort: 6379, template: (h, p) => `redis://${h}:${p}` },
+  { match: 'mongo',     type: 'mongodb',  label: 'MongoDB',    defaultPort: 27017, template: (h, p) => `mongodb://user:password@${h}:${p}/dbname` },
+];
+
 /** Returns the best HTTP base URL for a container given settings. */
 function resolveHttpBase(c, settings) {
   const { useContainerNames = false, preferPublicUrl = false, useTraefikLabels = true } = settings || {};
@@ -30,6 +38,34 @@ function resolveHttpBase(c, settings) {
     : (tcpPorts[0].hostPort ?? tcpPorts[0].containerPort);
   const hostname = useContainerNames ? c.name : 'localhost';
   return `http://${hostname}:${port}`;
+}
+
+function generateDbSuggestions(containers, settings) {
+  const { suggestDatabase = true, useContainerNames = false } = settings || {};
+  if (!suggestDatabase) return {};
+
+  const result = {};
+  for (const c of containers) {
+    const imageLower = (c.image || '').toLowerCase();
+    const dbType = DB_TYPES.find(d => imageLower.includes(d.match));
+    if (!dbType) { result[c.id] = []; continue; }
+
+    const hostname = useContainerNames ? c.name : 'localhost';
+    const mapping = (c.ports || []).find(p => p.containerPort === dbType.defaultPort && p.protocol === 'tcp');
+    const port = mapping
+      ? (useContainerNames ? mapping.containerPort : (mapping.hostPort ?? mapping.containerPort))
+      : dbType.defaultPort;
+
+    result[c.id] = [{
+      type: dbType.type,
+      name: `${c.name} - ${dbType.label}`,
+      description: `${dbType.label} database health check`,
+      interval: 60,
+      requiresConnectionString: true,
+      databaseConnectionString: dbType.template(hostname, port),
+    }];
+  }
+  return result;
 }
 
 function generateProgrammaticSuggestions(containers, settings) {
@@ -138,15 +174,22 @@ function generateProgrammaticSuggestions(containers, settings) {
     result[c.id] = suggestions;
   }
 
+  // Merge in database suggestions
+  const dbSuggs = generateDbSuggestions(containers, settings);
+  for (const [cid, suggs] of Object.entries(dbSuggs)) {
+    if (suggs.length > 0) result[cid] = [...(result[cid] || []), ...suggs];
+  }
+
   return result;
 }
 
 /**
  * Returns true if the given settings require an AI call.
- * HTTP health paths, DNS, and database monitors need AI knowledge/heuristics.
+ * Only HTTP health paths and DNS (non-Traefik) need AI heuristics.
+ * Database and all other types are now fully programmatic.
  */
 function needsAI(settings) {
-  return !!(settings.suggestHttp || settings.suggestDns || settings.suggestDatabase);
+  return !!(settings.suggestHttp || settings.suggestDns);
 }
 
 module.exports = { generateProgrammaticSuggestions, needsAI };

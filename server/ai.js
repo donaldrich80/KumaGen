@@ -239,7 +239,7 @@ async function suggestMonitors(containers, settings) {
 
   // Tell the AI to only handle the types it's actually good at;
   // docker/port/ping are already handled above
-  const aiSettings = { ...settings, suggestDocker: false, suggestPort: false, suggestPing: false };
+  const aiSettings = { ...settings, suggestDocker: false, suggestPort: false, suggestPing: false, suggestDatabase: false };
 
   const model = getModel();
 

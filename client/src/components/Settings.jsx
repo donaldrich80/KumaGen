@@ -280,12 +280,12 @@ export function Settings({ open, onOpenChange }) {
             </p>
             <div className="grid grid-cols-2 gap-2">
               {[
-                { key: 'suggestHttp',     label: 'HTTP / HTTPS',    needsAI: true },
-                { key: 'suggestPort',     label: 'TCP Port',        needsAI: false },
-                { key: 'suggestPing',     label: 'Ping',            needsAI: false },
-                { key: 'suggestDns',      label: 'DNS',             needsAI: true },
+                { key: 'suggestHttp',     label: 'HTTP / HTTPS',     needsAI: true },
+                { key: 'suggestPort',     label: 'TCP Port',         needsAI: false },
+                { key: 'suggestPing',     label: 'Ping',             needsAI: false },
+                { key: 'suggestDns',      label: 'DNS',              needsAI: true },
                 { key: 'suggestDocker',   label: 'Docker Container', needsAI: false },
-                { key: 'suggestDatabase', label: 'Database',        needsAI: true },
+                { key: 'suggestDatabase', label: 'Database',         needsAI: false },
               ].map(({ key, label, needsAI: requiresAI }) => (
                 <div key={key} className="flex items-center gap-2">
                   <Checkbox

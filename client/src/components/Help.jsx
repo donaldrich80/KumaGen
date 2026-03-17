@@ -85,7 +85,7 @@ function getMonitorTypes(settings) {
       badgeClass: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
       description:
         'Connects using the native database protocol to verify the server is healthy and accepting queries. Supports PostgreSQL, MySQL/MariaDB, Redis, and MongoDB. More reliable than a TCP port check because it tests the application layer.',
-      source: 'AI-generated when a database image (postgres, mysql, redis, mongo) is detected. Requires a connection string — you will be prompted to enter one before adding the monitor.',
+      source: 'Automatically detected from the container image name (postgres, mysql, mariadb, redis, mongo) — no AI needed. Credentials are pre-filled from the container\'s environment variables when available. Requires a connection string — you will be prompted to confirm it before adding the monitor.',
       example: dbExample,
     },
   ];
