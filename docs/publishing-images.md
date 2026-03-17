@@ -5,7 +5,7 @@ KumaGen uses a GitHub Actions workflow to automatically build and publish multi-
 | Registry | Image |
 |----------|-------|
 | GitHub Container Registry | `ghcr.io/donaldrich80/kumagen` |
-| Docker Hub | `donaldrich80/kumagen` |
+| Docker Hub | `donaldrich/kumagen` |
 
 ---
 
@@ -26,7 +26,7 @@ KumaGen uses a GitHub Actions workflow to automatically build and publish multi-
 GHCR is authenticated automatically using the built-in `GITHUB_TOKEN`. No additional setup is needed — the workflow already has `packages: write` permission.
 
 After the first push, the package will be listed at:
-`https://github.com/donaldrich80?tab=packages`
+`https://github.com/donaldrich?tab=packages`
 
 To make it public (recommended for open-source):
 1. Go to the package page on GitHub
@@ -53,7 +53,7 @@ To make it public (recommended for open-source):
 
 #### 2c. Add secrets and variables to the GitHub repo
 
-Go to **github.com/donaldrich80/KumaGen** → **Settings** → **Secrets and variables** → **Actions**
+Go to **github.com/donaldrich/KumaGen** → **Settings** → **Secrets and variables** → **Actions**
 
 Add one **secret**:
 
@@ -65,7 +65,7 @@ Add one **variable** (not a secret — it's not sensitive):
 
 | Name | Value |
 |------|-------|
-| `DOCKERHUB_USERNAME` | Your Docker Hub username (e.g. `donaldrich80`) |
+| `DOCKERHUB_USERNAME` | Your Docker Hub username (e.g. `donaldrich`) |
 
 > **Variables vs Secrets:** Variables are for non-sensitive config (`vars.DOCKERHUB_USERNAME`). Secrets are encrypted and masked in logs (`secrets.DOCKERHUB_TOKEN`).
 
@@ -86,7 +86,7 @@ This will produce `1.0.0`, `1.0`, `1`, and `sha-<sha>` tags on both registries.
 
 ## Verifying a build
 
-1. Go to **github.com/donaldrich80/KumaGen** → **Actions**
+1. Go to **github.com/donaldrich/KumaGen** → **Actions**
 2. Click the most recent **Build and Publish Docker Image** run
 3. Expand the **Build and push** step to see which tags were pushed
 
@@ -94,7 +94,7 @@ You can also pull and verify locally:
 
 ```bash
 docker pull ghcr.io/donaldrich80/kumagen:edge
-docker pull donaldrich80/kumagen:edge
+docker pull donaldrich/kumagen:edge
 ```
 
 ---
