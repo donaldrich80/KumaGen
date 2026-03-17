@@ -24,8 +24,8 @@ COPY --from=builder /app/server ./server
 COPY --from=builder /app/package.json ./package.json
 
 ENV NODE_ENV=production
-ENV PORT=3001
+ENV PORT=3003
 
-EXPOSE 3001
+EXPOSE 3003
 
 CMD ["node", "server/index.js"]

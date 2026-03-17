@@ -34,7 +34,7 @@ services:
   kumagen:
     image: ghcr.io/donaldrich80/kumagen:latest
     ports:
-      - "3001:3001"
+      - "3003:3003"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - kumagen-data:/app/data
@@ -44,7 +44,7 @@ volumes:
   kumagen-data:
 ```
 
-Then open **http://localhost:3001** and configure your settings.
+Then open **http://localhost:3003** and configure your settings.
 
 ### Build from source
 
@@ -128,7 +128,7 @@ Database monitors require a connection string — KumaGen provides an editable t
 git clone https://github.com/donaldrich80/KumaGen.git
 cd KumaGen
 npm run install:all   # install backend + frontend deps
-npm run dev           # backend on :3001, Vite dev server on :5173
+npm run dev           # backend on :3003, Vite dev server on :5173
 ```
 
 ### Project structure
