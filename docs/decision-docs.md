@@ -1,7 +1,7 @@
 <!--
 Vendored from the design-principles repo — do not edit here.
 Upstream: principles/decision-docs.md
-Source commit: a57ed6009fa387b777d42600006fae0dbbca10da
+Source commit: d733224908fd66931fb53d0ede75c8d319825115
 Canonical: git@github-personal:donaldrich80/design-principles.git
 Check drift: ~/Projects/design-principles/scripts/check-sync.sh docs/decision-docs.md
 -->
@@ -223,3 +223,10 @@ have it, even if the canonical example doesn't.
   recommendation framed as a checklist of conditions. The doc
   predated the implementation by enough that the implementation
   PR could cite it as the rationale.
+- **`app-clidoc`** → `docs/decision-docs.md` (vendored 2026-09-21). Its
+  `docs/output-integrations.md` is a standing multi-option comparison of
+  publisher destinations; this is the shape it should take before a third
+  destination lands.
+- **`app-kumagen`** → `docs/decision-docs.md` (vendored 2026-09-21). Per-run
+  provider/model selection for AI-driven config generation is the
+  multi-scale cost/quality choice this principle governs.
