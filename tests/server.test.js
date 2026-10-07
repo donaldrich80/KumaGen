@@ -1,4 +1,4 @@
-// Characterization test for the process door: `node server/index.js`.
+// Characterization test for the process door: `node src/index.js`.
 // Boots the real entrypoint as a subprocess on a free port with a scrubbed env,
 // a temp DB and a temp cwd (so dotenv cannot pick up a real .env).
 
@@ -12,7 +12,7 @@ const skip = h.depsMissing();
 // A skipped describe() is not counted in the runner's totals; this test makes the skip visible there.
 if (skip) test(`${require('node:path').basename(__filename)} suite`, { skip }, () => {});
 
-describe('server/index.js entrypoint', { skip }, () => {
+describe('src/index.js entrypoint', { skip }, () => {
   let child, base, stdout = '';
 
   before(async () => {
@@ -43,6 +43,21 @@ describe('server/index.js entrypoint', { skip }, () => {
     assert.match(stdout, /KumaGen server running on http:\/\/localhost:\d+/);
   });
 
+  it('emits the listen event as a structured S01 JSON line on stdout', () => {
+    const rec = stdout.split('\n').filter(Boolean).map(l => JSON.parse(l)).find(r => r.code === 'S01');
+    assert.equal(rec.event, 'server.listening');
+    assert.equal(typeof rec.data.port, 'number');
+  });
+
+  it('logs each HTTP request as an S10 line with status and duration', async () => {
+    await h.request(base, 'GET', '/api/settings');
+    await new Promise(r => setTimeout(r, 50));
+    const rec = stdout.split('\n').filter(Boolean).map(l => JSON.parse(l))
+      .find(r => r.code === 'S10' && r.data.path === '/api/settings');
+    assert.equal(rec.data.status, 200);
+    assert.equal(typeof rec.data.duration_ms, 'number');
+  });
+
   it('serves GET /api/settings as JSON with 200 (empty DB -> {})', async () => {
     const res = await h.request(base, 'GET', '/api/settings');
     assert.equal(res.status, 200);
@@ -55,7 +70,7 @@ describe('server/index.js entrypoint', { skip }, () => {
     assert.equal(res.headers.get('access-control-allow-origin'), '*');
   });
 
-  it('SPA catch-all returns 404 when client/dist has not been built', { skip: require('node:fs').existsSync(path.join(h.ROOT, 'client', 'dist', 'index.html')) ? 'client/dist is built; catch-all would serve index.html' : false }, async () => {
+  it('SPA catch-all returns 404 when web/dist has not been built', { skip: require('node:fs').existsSync(path.join(h.ROOT, 'web', 'dist', 'index.html')) ? 'web/dist is built; catch-all would serve index.html' : false }, async () => {
     const res = await h.request(base, 'GET', '/some/client/route');
     assert.equal(res.status, 404);
   });

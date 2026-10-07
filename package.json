@@ -2,14 +2,14 @@
   "name": "kumagen",
   "version": "1.0.0",
   "description": "AI-powered Uptime Kuma monitor generator for Docker containers",
-  "main": "server/index.js",
+  "main": "src/index.js",
   "scripts": {
-    "start": "node server/index.js",
-    "dev:server": "nodemon server/index.js",
-    "dev:client": "cd client && npm run dev",
-    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
-    "build": "cd client && npm run build",
-    "install:all": "npm install && cd client && npm install"
+    "start": "node src/index.js",
+    "dev:server": "nodemon src/index.js",
+    "dev:web": "cd web && npm run dev",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:web\"",
+    "build": "cd web && npm run build",
+    "install:all": "npm install && cd web && npm install"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.74",

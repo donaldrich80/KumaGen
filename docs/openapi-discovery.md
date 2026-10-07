@@ -106,4 +106,4 @@ Once endpoints are known, a downstream consumer (human or AI) can:
 
 ---
 
-*Generated from the KumaGen OpenAPI discovery implementation — `server/openapi.js`*
+*Generated from the KumaGen OpenAPI discovery implementation — `src/openapi.js`*

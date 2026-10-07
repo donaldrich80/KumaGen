@@ -1,0 +1,25 @@
+// Provenance: generated from the shadcn/ui component template (https://ui.shadcn.com),
+// imported in bd6d7e5; upstream version not recorded. Edited locally since (dark-mode theme
+// 8f2f7be, Tailwind 4 migration b77f27d) — owned here, not re-synced. See git log for diffs.
+import * as React from 'react';
+import * as CheckboxPrimitive from '@radix-ui/react-checkbox';
+import { Check } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+const Checkbox = React.forwardRef(({ className, ...props }, ref) => (
+  <CheckboxPrimitive.Root
+    ref={ref}
+    className={cn(
+      'peer h-4 w-4 shrink-0 rounded-sm border border-primary shadow-sm focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground',
+      className
+    )}
+    {...props}
+  >
+    <CheckboxPrimitive.Indicator className={cn('flex items-center justify-center text-current')}>
+      <Check className="h-4 w-4" />
+    </CheckboxPrimitive.Indicator>
+  </CheckboxPrimitive.Root>
+));
+Checkbox.displayName = CheckboxPrimitive.Root.displayName;
+
+export { Checkbox };

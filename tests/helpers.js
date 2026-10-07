@@ -3,7 +3,7 @@
 // Every test runs offline: Docker, Uptime Kuma (socket.io), the AI SDK and the
 // SQLite path are all faked or redirected before any server module is required.
 // Server routes destructure their imports at require time, so fakes must be
-// installed BEFORE the first require of anything under server/.
+// installed BEFORE the first require of anything under src/.
 
 const fs = require('node:fs');
 const os = require('node:os');
@@ -12,7 +12,7 @@ const http = require('node:http');
 const { EventEmitter } = require('node:events');
 
 const ROOT = path.join(__dirname, '..');
-const SERVER = path.join(ROOT, 'server');
+const SERVER = path.join(ROOT, 'src');
 
 const SCRUBBED_ENV_KEYS = ['ANTHROPIC_API_KEY', 'KUMA_URL', 'KUMA_USERNAME', 'KUMA_PASSWORD', 'DB_PATH', 'PORT'];
 
@@ -146,20 +146,42 @@ function resetKuma() {
   kumaState.urls = [];
 }
 
+// ---- Log capture (src/log.js sink) ----------------------------------------
+
+const logState = { records: [] };
+
+// Routes structured log lines into logState.records instead of stdout.
+function installLogCapture() {
+  const log = require(path.join(SERVER, 'log'));
+  log.setSink((line) => logState.records.push(JSON.parse(line)));
+  return logState;
+}
+
+// Codes emitted since the last reset, in order.
+function loggedCodes() {
+  return logState.records.map(r => r.code);
+}
+
+function resetLogs() {
+  logState.records = [];
+}
+
 // Installs every fake, isolates env/DB. Call once per test file before requiring server code.
 function setupOffline() {
   const dir = isolateEnv();
   installDockerFake();
   installAiFake();
   installKumaFake();
-  return { dir, docker: dockerState, ai: aiState, kuma: kumaState };
+  installLogCapture();
+  return { dir, docker: dockerState, ai: aiState, kuma: kumaState, log: logState };
 }
 
-// Builds the same Express app as server/index.js (minus listen and static SPA).
+// Builds the same Express app as src/index.js (minus listen and static SPA).
 function buildApp() {
   const express = require(require.resolve('express', { paths: [ROOT] }));
   const app = express();
   app.use(express.json());
+  app.use(require(path.join(SERVER, 'log')).requestLogger());
   app.use('/api/settings', require(path.join(SERVER, 'routes/settings')));
   app.use('/api/containers', require(path.join(SERVER, 'routes/containers')));
   app.use('/api/suggestions', require(path.join(SERVER, 'routes/suggestions')));
@@ -219,6 +241,6 @@ function rawContainer(overrides = {}) {
 
 module.exports = {
   ROOT, SERVER, SCRUBBED_ENV_KEYS,
-  depsMissing, tempDir, setupOffline, resetKuma,
+  depsMissing, tempDir, setupOffline, resetKuma, loggedCodes, resetLogs,
   buildApp, listen, freePort, request, rawContainer,
 };

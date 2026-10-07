@@ -135,8 +135,10 @@ npm run dev           # backend on :3003, Vite dev server on :5173
 
 ```
 KumaGen/
-├── server/
-│   ├── index.js          # Express server
+├── src/                  # server (Express API)
+│   ├── index.js          # Express server — process door
+│   ├── log.js            # Structured JSON-line logger (stdout)
+│   ├── codes.js          # Permanent event-code registry (Sxx / Exx)
 │   ├── ai.js             # Multi-provider AI integration (Vercel AI SDK)
 │   ├── docker.js         # Docker container scanning
 │   ├── kuma.js           # Uptime Kuma Socket.IO client
@@ -146,14 +148,26 @@ KumaGen/
 │       ├── suggestions.js
 │       ├── monitors.js
 │       └── settings.js
-└── client/
-    └── src/
-        ├── App.jsx
-        └── components/
-            ├── ContainerList.jsx
-            ├── SuggestionReview.jsx
-            └── Settings.jsx
+├── web/                  # React SPA (Vite)
+│   └── src/
+│       ├── App.jsx
+│       └── components/
+│           ├── ContainerList.jsx
+│           ├── SuggestionReview.jsx
+│           └── Settings.jsx
+├── tests/                # offline suite (node --test)
+└── docs/                 # spec, design notes, vendored principles
 ```
+
+## Logging
+
+The server writes one JSON line per event to stdout: `{ ts, level, code, event, data }`.
+Every success and failure path has a permanent code (`src/codes.js`; table in
+[`docs/spec.md`](docs/spec.md)), e.g. `docker logs kumagen | grep '"code":"E07"'` finds every
+failed Kuma batch. Suggestion and monitor runs time each stage (`S20`/`E20`) and emit a run
+summary (`E90`) on failure or partial failure, or (`S90`) when a success takes longer than
+`KUMAGEN_SLOW_RUN_MS` (default 10000). Logs are append-only; rotation is left to Docker's
+log driver. Secrets (AI key, Kuma password, container DB env values) are never logged.
 
 ---
 
@@ -172,12 +186,14 @@ goes to a temp file. The `spec` reporter prints every skipped test with its reas
 
 Characterization tests, one per door:
 
-- `tests/server.test.js` — boots `server/index.js` as a subprocess (port, logging, CORS, SPA fallback)
+- `tests/server.test.js` — boots `src/index.js` as a subprocess (port, logging, CORS, SPA fallback)
 - `tests/routes.test.js` — every `/api/*` HTTP endpoint: status codes and response shapes
+- `tests/logging.test.js` — every event code is emitted on its path; secrets never logged
+- `tests/provenance.test.js` — vendored docs and generated UI components carry provenance headers
 - `tests/modules.test.js` — the functions server modules export to each other (`db`, `docker`,
   `kuma`, `ai`, `programmatic`, `traefik`, `db-connection`, `health-endpoints`, `openapi`)
 
-The `client/` React app has no doors at this level and is not tested.
+The `web/` React app has no doors at this level and is not tested.
 
 ---
 
