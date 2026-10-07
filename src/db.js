@@ -49,6 +49,25 @@ function setSetting(key, value) {
   getDb().prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, value);
 }
 
+// Boolean settings are stored as strings; anything but 'false' counts as on.
+function getBoolSetting(key, defaultValue) {
+  const value = getSetting(key);
+  return value === null ? defaultValue : value !== 'false';
+}
+
+// Monitor-type and hostname toggles with their defaults, as read by suggestions and ai-status
+const MONITOR_SETTING_DEFAULTS = {
+  suggestHttp: true, suggestPort: true, suggestPing: true, suggestDns: false,
+  suggestDocker: true, suggestDatabase: true,
+  useContainerNames: false, useTraefikLabels: true, preferPublicUrl: false,
+};
+
+function getMonitorSettings() {
+  return Object.fromEntries(
+    Object.entries(MONITOR_SETTING_DEFAULTS).map(([k, d]) => [k, getBoolSetting(k, d)])
+  );
+}
+
 function getAllSettings() {
   const rows = getDb().prepare('SELECT key, value FROM settings').all();
   return Object.fromEntries(rows.map(r => [r.key, r.value]));
@@ -62,7 +81,7 @@ function getMonitoredContainerIds() {
 
 function getMonitorsByContainerId(containerId) {
   return getDb()
-    .prepare('SELECT * FROM monitored_containers WHERE container_id = ? ORDER BY created_at DESC')
+    .prepare('SELECT * FROM monitored_containers WHERE container_id = ? ORDER BY created_at DESC, id DESC')
     .all(containerId);
 }
 
@@ -81,9 +100,9 @@ function recordMonitors(containerId, containerName, monitors) {
 // Returns the Kuma monitor ID of the group for a given container, or null
 function getGroupMonitorId(containerId) {
   const row = getDb()
-    .prepare('SELECT monitor_id FROM monitored_containers WHERE container_id = ? AND monitor_type = ? ORDER BY created_at DESC LIMIT 1')
+    .prepare('SELECT monitor_id FROM monitored_containers WHERE container_id = ? AND monitor_type = ? ORDER BY created_at DESC, id DESC LIMIT 1')
     .get(containerId, 'group');
   return row ? row.monitor_id : null;
 }
 
-module.exports = { getSetting, setSetting, getAllSettings, getMonitoredContainerIds, getMonitorsByContainerId, recordMonitors, getGroupMonitorId };
+module.exports = { getSetting, setSetting, getBoolSetting, getMonitorSettings, getAllSettings, getMonitoredContainerIds, getMonitorsByContainerId, recordMonitors, getGroupMonitorId };

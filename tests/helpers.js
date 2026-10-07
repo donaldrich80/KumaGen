@@ -101,6 +101,7 @@ const kumaState = {
   nextId: 100,
   failNames: new Set(), // monitor names whose 'add' is rejected
   urls: [],
+  sockets: [],          // every socket handed out, to check disconnects
 };
 
 function installKumaFake() {
@@ -111,6 +112,7 @@ function installKumaFake() {
     const socket = new EventEmitter();
     socket.disconnected = false;
     socket.disconnect = () => { socket.disconnected = true; };
+    kumaState.sockets.push(socket);
     const serverEmit = EventEmitter.prototype.emit.bind(socket);
     socket.emit = (ev, payload, ack) => {
       if (ev === 'login') {
@@ -144,6 +146,7 @@ function resetKuma() {
   kumaState.nextId = 100;
   kumaState.failNames = new Set();
   kumaState.urls = [];
+  kumaState.sockets = [];
 }
 
 // ---- Log capture (src/log.js sink) ----------------------------------------

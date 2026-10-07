@@ -19,28 +19,45 @@ const DEFAULT_MODELS = {
   'openai-compatible': '',
 };
 
-function getModel() {
+// Reads the AI provider settings once. The legacy anthropicApiKey / ANTHROPIC_API_KEY
+// fallback applies only to the Anthropic provider, never to a third-party endpoint.
+// `ready` mirrors the configuration checks getModel() makes.
+function resolveAiConfig() {
   const provider = getSetting('aiProvider') || 'anthropic';
-  const apiKey = getSetting('aiApiKey') || getSetting('anthropicApiKey') || process.env.ANTHROPIC_API_KEY;
+  const apiKey = getSetting('aiApiKey')
+    || (provider === 'anthropic' ? (getSetting('anthropicApiKey') || process.env.ANTHROPIC_API_KEY) : '')
+    || '';
   const modelName = getSetting('aiModel') || DEFAULT_MODELS[provider] || '';
   const baseUrl = getSetting('aiBaseUrl') || '';
+  let ready;
+  switch (provider) {
+    case 'ollama': ready = true; break;
+    case 'openai-compatible': ready = !!(baseUrl && modelName); break;
+    case 'anthropic': case 'openai': case 'google': ready = !!apiKey; break;
+    default: ready = false;
+  }
+  return { provider, apiKey, modelName, baseUrl, ready };
+}
+
+function getModel() {
+  const { provider, apiKey, modelName, baseUrl } = resolveAiConfig();
 
   switch (provider) {
     case 'anthropic': {
       if (!apiKey) throw new Error('Anthropic API key not configured. Set it in Settings.');
-      return createAnthropic({ apiKey })(modelName || DEFAULT_MODELS.anthropic);
+      return createAnthropic({ apiKey })(modelName);
     }
     case 'openai': {
       if (!apiKey) throw new Error('OpenAI API key not configured. Set it in Settings.');
-      return createOpenAI({ apiKey }).chat(modelName || DEFAULT_MODELS.openai);
+      return createOpenAI({ apiKey }).chat(modelName);
     }
     case 'google': {
       if (!apiKey) throw new Error('Google AI API key not configured. Set it in Settings.');
-      return createGoogleGenerativeAI({ apiKey })(modelName || DEFAULT_MODELS.google);
+      return createGoogleGenerativeAI({ apiKey })(modelName);
     }
     case 'ollama': {
       const ollamaBase = baseUrl || 'http://localhost:11434';
-      return createOllama({ baseURL: `${ollamaBase}/api` })(modelName || DEFAULT_MODELS.ollama);
+      return createOllama({ baseURL: `${ollamaBase}/api` })(modelName);
     }
     case 'openai-compatible': {
       if (!baseUrl) throw new Error('Base URL is required for OpenAI-compatible providers. Set it in Settings.');
@@ -291,17 +308,16 @@ async function suggestMonitors(containers, settings) {
     else throw new Error('AI returned invalid JSON. Please try again.');
   }
 
-  // Merge: programmatic suggestions first, AI suggestions appended after (deduplicate HTTP by URL)
+  // Merge: programmatic suggestions first, AI suggestions appended after
+  // (deduplicate HTTP by URL and DNS by hostname, case-insensitively)
+  const dedupeKey = s => (s.type === 'http' && s.url) ? `http ${s.url.toLowerCase()}`
+    : (s.type === 'dns' && s.hostname) ? `dns ${s.hostname.toLowerCase()}`
+    : null;
   const merged = { ...programmatic };
   for (const [cid, aiSuggs] of Object.entries(aiResult)) {
     if (merged[cid]) {
-      const existingUrls = new Set(
-        merged[cid].filter(s => s.type === 'http' && s.url).map(s => s.url.toLowerCase())
-      );
-      const dedupedAi = aiSuggs.filter(
-        s => s.type !== 'http' || !s.url || !existingUrls.has(s.url.toLowerCase())
-      );
-      merged[cid] = [...merged[cid], ...dedupedAi];
+      const existing = new Set(merged[cid].map(dedupeKey).filter(Boolean));
+      merged[cid] = [...merged[cid], ...aiSuggs.filter(s => !existing.has(dedupeKey(s)))];
     } else {
       merged[cid] = aiSuggs;
     }
@@ -313,4 +329,4 @@ async function suggestMonitors(containers, settings) {
   return merged;
 }
 
-module.exports = { suggestMonitors, needsAI };
+module.exports = { suggestMonitors, needsAI, resolveAiConfig };

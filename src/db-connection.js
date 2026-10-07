@@ -9,22 +9,16 @@
 const DEFAULT_PORTS = { postgres: 5432, mysql: 3306, redis: 6379, mongodb: 27017 };
 
 /**
- * Resolves the hostname to use for a database connection string.
- * Mirrors the logic in programmatic.js for consistency.
+ * Resolves { hostname, port } for a database connection string. Shared with
+ * programmatic.js. Prefers the host-mapped port when useContainerNames is false.
  */
-function resolveDbHostname(c, settings) {
-  return (settings.useContainerNames) ? c.name : 'localhost';
-}
-
-/**
- * Resolves the port to use for a database connection string.
- * Prefers the host-mapped port when useContainerNames is false.
- */
-function resolveDbPort(c, dbType, settings) {
+function resolveDbAddress(c, dbType, settings) {
+  const useContainerNames = !!(settings && settings.useContainerNames);
   const defaultPort = DEFAULT_PORTS[dbType];
   const mapping = (c.ports || []).find(p => p.containerPort === defaultPort && p.protocol === 'tcp');
-  if (!mapping) return defaultPort;
-  return settings.useContainerNames ? mapping.containerPort : (mapping.hostPort ?? mapping.containerPort);
+  const port = !mapping ? defaultPort
+    : useContainerNames ? mapping.containerPort : (mapping.hostPort ?? mapping.containerPort);
+  return { hostname: useContainerNames ? c.name : 'localhost', port };
 }
 
 /**
@@ -42,10 +36,11 @@ function buildDbConnectionString(dbType, dbEnv, hostname, port) {
 
   switch (dbType) {
     case 'postgres': {
-      const user = dbEnv.POSTGRES_USER || '';
       const pass = dbEnv.POSTGRES_PASSWORD || '';
+      if (!dbEnv.POSTGRES_USER && !pass) return null;
+      // The official image defaults the superuser to "postgres" when POSTGRES_USER is unset
+      const user = dbEnv.POSTGRES_USER || 'postgres';
       const db   = dbEnv.POSTGRES_DB || 'postgres';
-      if (!user && !pass) return null;
       return `postgres://${enc(user)}:${enc(pass)}@${hostname}:${port}/${db}`;
     }
 
@@ -90,13 +85,12 @@ function enrichDbSuggestions(merged, containers, settings) {
     if (!c || !c.dbEnv || Object.keys(c.dbEnv).length === 0) continue;
 
     for (const sugg of suggs) {
-      if (!['postgres', 'mysql', 'redis', 'mongodb'].includes(sugg.type)) continue;
-      const hostname = resolveDbHostname(c, settings);
-      const port = resolveDbPort(c, sugg.type, settings);
+      if (!(sugg.type in DEFAULT_PORTS)) continue;
+      const { hostname, port } = resolveDbAddress(c, sugg.type, settings);
       const connStr = buildDbConnectionString(sugg.type, c.dbEnv, hostname, port);
       if (connStr) sugg.databaseConnectionString = connStr;
     }
   }
 }
 
-module.exports = { buildDbConnectionString, enrichDbSuggestions };
+module.exports = { buildDbConnectionString, enrichDbSuggestions, resolveDbAddress };

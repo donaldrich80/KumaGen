@@ -13,7 +13,7 @@ human review them, and create the accepted ones in Uptime Kuma.
 | Door | Contract | Characterization test |
 |---|---|---|
 | Process: `node src/index.js` | binds `PORT` (default 3003), logs `S01`, serves `/api/*` and the SPA from `web/dist` | `tests/server.test.js` |
-| `GET /api/settings`, `PUT /api/settings` | settings map with password masked; allow-listed keys only | `tests/routes.test.js` |
+| `GET /api/settings`, `PUT /api/settings` | settings map with Kuma password and AI keys masked; allow-listed keys only, stored as text | `tests/routes.test.js` |
 | `GET /api/settings/ai-status` | `{ required, ready }` | `tests/routes.test.js` |
 | `POST /api/settings/test-connection` | 200 `{ ok: true }` / 400 `{ ok: false, error }` | `tests/routes.test.js` |
 | `GET /api/containers` | 200 list / 503 Docker unavailable / 500 | `tests/routes.test.js` |

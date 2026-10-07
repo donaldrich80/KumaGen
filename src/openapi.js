@@ -82,8 +82,13 @@ async function probePort(host, port) {
 }
 
 async function getOpenApiSpecs(container) {
-  // Only probe host-mapped ports (reachable from this process)
-  const httpPorts = container.ports.filter(p => p.hostPort);
+  // Only probe host-mapped TCP ports (reachable from this process), once each:
+  // Docker lists a dual-stack mapping twice (0.0.0.0 and ::) with the same hostPort
+  const byHostPort = new Map();
+  for (const p of container.ports) {
+    if (p.hostPort && (p.protocol || 'tcp') === 'tcp' && !byHostPort.has(p.hostPort)) byHostPort.set(p.hostPort, p);
+  }
+  const httpPorts = [...byHostPort.values()];
   if (httpPorts.length === 0) return [];
 
   const results = await Promise.all(

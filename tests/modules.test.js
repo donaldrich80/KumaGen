@@ -94,6 +94,9 @@ describe('server modules', { skip }, () => {
       assert.equal(buildDbConnectionString('postgres', { POSTGRES_USER: 'u', POSTGRES_PASSWORD: 'p:w' }, 'h', 1),
         'postgres://u:p%3Aw@h:1/postgres');
       assert.equal(buildDbConnectionString('postgres', {}, 'h', 1), null);
+      // Official postgres image defaults the user to "postgres" when only the password is set
+      assert.equal(buildDbConnectionString('postgres', { POSTGRES_PASSWORD: 'pw' }, 'h', 1),
+        'postgres://postgres:pw@h:1/postgres');
       assert.equal(buildDbConnectionString('mysql', { MYSQL_ROOT_PASSWORD: 'r' }, 'h', 2), 'mysql://root:r@h:2/');
       assert.equal(buildDbConnectionString('redis', { REQUIREPASS: 's' }, 'h', 3), 'redis://:s@h:3');
       assert.equal(buildDbConnectionString('redis', {}, 'h', 3), null);
@@ -199,6 +202,17 @@ describe('server modules', { skip }, () => {
       assert.ok(s.endpoints.some(e => e.path === '/health' && e.method.toUpperCase() === 'GET'));
     });
 
+    it('probes each TCP host port once (dual-stack duplicates and UDP skipped)', async () => {
+      const { getOpenApiSpecs } = load('openapi');
+      const specs = await getOpenApiSpecs({ ports: [
+        { containerPort: 53, hostPort: port, protocol: 'udp' },
+        { containerPort: 8000, hostPort: port, protocol: 'tcp', hostIp: '0.0.0.0' },
+        { containerPort: 8000, hostPort: port, protocol: 'tcp', hostIp: '::' },
+      ] });
+      assert.equal(specs.length, 1);
+      assert.equal(specs[0].containerPort, 8000);
+    });
+
     it('returns [] when no ports are host-mapped', async () => {
       const { getOpenApiSpecs } = load('openapi');
       assert.deepEqual(await getOpenApiSpecs({ ports: [{ containerPort: 80 }] }), []);
@@ -255,6 +269,35 @@ describe('server modules', { skip }, () => {
       assert.deepEqual(out.other, [{ type: 'ping', name: 'other - Ping' }]);
     });
 
+    it('does not send the legacy Anthropic key to another provider', async () => {
+      const { suggestMonitors } = load('ai');
+      db().setSetting('aiProvider', 'openai');
+      db().setSetting('aiApiKey', '');
+      db().setSetting('anthropicApiKey', 'legacy-anthropic-key-not-real');
+      try {
+        await assert.rejects(suggestMonitors(containers, { suggestHttp: true }),
+          { message: 'OpenAI API key not configured. Set it in Settings.' });
+        assert.equal(fakes.ai.calls.length, 0);
+      } finally {
+        db().setSetting('aiProvider', 'anthropic');
+        db().setSetting('anthropicApiKey', '');
+      }
+    });
+
+    it('de-duplicates AI DNS suggestions against Traefik DNS checks by hostname', async () => {
+      const { suggestMonitors } = load('ai');
+      db().setSetting('aiProvider', 'anthropic');
+      db().setSetting('aiApiKey', 'test-key-not-real');
+      const traefik = [{ ...containers[0], labels: { 'traefik.http.routers.n.rule': 'Host(`n.example.com`)' } }];
+      fakes.ai.responseText = JSON.stringify({ n1: [
+        { type: 'dns', name: 'dup', hostname: 'N.example.com' },
+        { type: 'dns', name: 'other', hostname: 'other.example.com' },
+      ] });
+      const out = await suggestMonitors(traefik, { suggestDns: true, useTraefikLabels: true });
+      const dns = out.n1.filter(s => s.type === 'dns').map(s => s.name);
+      assert.deepEqual(dns, ['nginx - DNS (n.example.com)', 'other']);
+    });
+
     it('rejects when the AI reply contains no JSON object', async () => {
       const { suggestMonitors } = load('ai');
       db().setSetting('aiApiKey', 'test-key-not-real');
@@ -298,6 +341,34 @@ describe('server modules', { skip }, () => {
       await addMonitors([{ containerId: 'k2', containerName: 'svc2', type: 'ping', name: 'p' }], { groupByContainer: true });
       assert.equal(fakes.kuma.added.length, 1);
       assert.equal(fakes.kuma.added[0].parent, 42);
+    });
+
+    it('disconnects the socket when creating the group monitor fails', async () => {
+      const { addMonitors } = load('kuma');
+      fakes.kuma.failNames.add('svc3');
+      await assert.rejects(
+        addMonitors([{ containerId: 'k3', containerName: 'svc3', type: 'ping', name: 'p' }], { groupByContainer: true }),
+        { message: 'rejected by fake kuma' });
+      assert.equal(fakes.kuma.sockets.length, 1);
+      assert.equal(fakes.kuma.sockets[0].disconnected, true);
+    });
+
+    it('creates a new group when the stored group id no longer exists in Kuma', async () => {
+      const { addMonitors } = load('kuma');
+      load('db').recordMonitors('k4', 'svc4', [{ monitorId: 55, name: 'svc4', type: 'group' }]);
+      await addMonitors([{ containerId: 'k4', containerName: 'svc4', type: 'ping', name: 'p' }], { groupByContainer: true });
+      assert.equal(fakes.kuma.added[0].type, 'group');
+      assert.equal(fakes.kuma.added[1].parent, 100);
+      assert.equal(load('db').getGroupMonitorId('k4'), 100);
+    });
+
+    it('reuses a stored group id that is still live in Kuma under another name', async () => {
+      const { addMonitors } = load('kuma');
+      load('db').recordMonitors('k5', 'svc5', [{ monitorId: 77, name: 'svc5', type: 'group' }]);
+      fakes.kuma.monitorList = { 77: { id: 77, type: 'group', name: 'renamed in kuma' } };
+      await addMonitors([{ containerId: 'k5', containerName: 'svc5', type: 'ping', name: 'p' }], { groupByContainer: true });
+      assert.equal(fakes.kuma.added.length, 1);
+      assert.equal(fakes.kuma.added[0].parent, 77);
     });
 
     it('testConnection resolves { ok: true } and errors clearly when unconfigured', async () => {

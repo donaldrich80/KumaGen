@@ -9,13 +9,14 @@
 
 const { getTraefikRouters } = require('./traefik');
 const { getKnownEndpoints } = require('./health-endpoints');
+const { resolveDbAddress } = require('./db-connection');
 
 const DB_TYPES = [
-  { match: 'postgres',  type: 'postgres', label: 'PostgreSQL', defaultPort: 5432, template: (h, p) => `postgres://user:password@${h}:${p}/dbname` },
-  { match: 'mysql',     type: 'mysql',    label: 'MySQL',      defaultPort: 3306, template: (h, p) => `mysql://user:password@${h}:${p}/dbname` },
-  { match: 'mariadb',   type: 'mysql',    label: 'MariaDB',    defaultPort: 3306, template: (h, p) => `mysql://user:password@${h}:${p}/dbname` },
-  { match: 'redis',     type: 'redis',    label: 'Redis',      defaultPort: 6379, template: (h, p) => `redis://${h}:${p}` },
-  { match: 'mongo',     type: 'mongodb',  label: 'MongoDB',    defaultPort: 27017, template: (h, p) => `mongodb://user:password@${h}:${p}/dbname` },
+  { match: 'postgres',  type: 'postgres', label: 'PostgreSQL', template: (h, p) => `postgres://user:password@${h}:${p}/dbname` },
+  { match: 'mysql',     type: 'mysql',    label: 'MySQL',      template: (h, p) => `mysql://user:password@${h}:${p}/dbname` },
+  { match: 'mariadb',   type: 'mysql',    label: 'MariaDB',    template: (h, p) => `mysql://user:password@${h}:${p}/dbname` },
+  { match: 'redis',     type: 'redis',    label: 'Redis',      template: (h, p) => `redis://${h}:${p}` },
+  { match: 'mongo',     type: 'mongodb',  label: 'MongoDB',    template: (h, p) => `mongodb://user:password@${h}:${p}/dbname` },
 ];
 
 /** Returns the best HTTP base URL for a container given settings. */
@@ -43,7 +44,7 @@ function resolveHttpBase(c, settings) {
 }
 
 function generateDbSuggestions(containers, settings) {
-  const { suggestDatabase = true, useContainerNames = false } = settings || {};
+  const { suggestDatabase = true } = settings || {};
   if (!suggestDatabase) return {};
 
   const result = {};
@@ -52,11 +53,7 @@ function generateDbSuggestions(containers, settings) {
     const dbType = DB_TYPES.find(d => imageLower.includes(d.match));
     if (!dbType) { result[c.id] = []; continue; }
 
-    const hostname = useContainerNames ? c.name : 'localhost';
-    const mapping = (c.ports || []).find(p => p.containerPort === dbType.defaultPort && p.protocol === 'tcp');
-    const port = mapping
-      ? (useContainerNames ? mapping.containerPort : (mapping.hostPort ?? mapping.containerPort))
-      : dbType.defaultPort;
+    const { hostname, port } = resolveDbAddress(c, dbType.type, settings);
 
     result[c.id] = [{
       type: dbType.type,

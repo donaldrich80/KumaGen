@@ -37,6 +37,16 @@ describe('HTTP API routes', { skip }, () => {
       assert.equal(res.json.kumaUrl, 'http://kuma:3001');
       assert.equal(res.json.kumaPassword, '••••••••');
     });
+
+    it('masks stored AI API keys too', async () => {
+      db.setSetting('aiApiKey', 'sk-real-not-real');
+      db.setSetting('anthropicApiKey', 'sk-legacy-not-real');
+      const res = await h.request(base, 'GET', '/api/settings');
+      assert.equal(res.json.aiApiKey, '••••••••');
+      assert.equal(res.json.anthropicApiKey, '••••••••');
+      db.setSetting('aiApiKey', '');
+      db.setSetting('anthropicApiKey', '');
+    });
   });
 
   describe('PUT /api/settings', () => {
@@ -56,6 +66,24 @@ describe('HTTP API routes', { skip }, () => {
       assert.deepEqual(res.json, { ok: true, updated: [] });
       assert.equal(db.getSetting('kumaPassword'), 'real-secret');
     });
+
+    it('does not overwrite stored AI keys with the mask placeholder', async () => {
+      db.setSetting('aiApiKey', 'sk-real-not-real');
+      const res = await h.request(base, 'PUT', '/api/settings', { aiApiKey: '••••••••', anthropicApiKey: '••••••••' });
+      assert.deepEqual(res.json, { ok: true, updated: [] });
+      assert.equal(db.getSetting('aiApiKey'), 'sk-real-not-real');
+      db.setSetting('aiApiKey', '');
+    });
+
+    it('stores JSON booleans as strings instead of failing', async () => {
+      const res = await h.request(base, 'PUT', '/api/settings', { suggestDns: true, preferPublicUrl: false });
+      assert.equal(res.status, 200);
+      assert.deepEqual(res.json, { ok: true, updated: ['suggestDns', 'preferPublicUrl'] });
+      assert.equal(db.getSetting('suggestDns'), 'true');
+      assert.equal(db.getSetting('preferPublicUrl'), 'false');
+      db.setSetting('suggestDns', 'false');
+      db.setSetting('preferPublicUrl', 'false');
+    });
   });
 
   describe('GET /api/settings/ai-status', () => {
@@ -72,6 +100,26 @@ describe('HTTP API routes', { skip }, () => {
       db.setSetting('aiProvider', 'anthropic');
       const res = await h.request(base, 'GET', '/api/settings/ai-status');
       assert.deepEqual(res.json, { required: true, ready: false });
+    });
+
+    it('reports ready for an OpenAI-compatible provider with base URL and model but no key', async () => {
+      db.setSetting('suggestHttp', 'true');
+      db.setSetting('aiProvider', 'openai-compatible');
+      db.setSetting('aiBaseUrl', 'http://llm.local/v1');
+      db.setSetting('aiModel', 'local-model');
+      const res = await h.request(base, 'GET', '/api/settings/ai-status');
+      assert.deepEqual(res.json, { required: true, ready: true });
+      db.setSetting('aiBaseUrl', '');
+      db.setSetting('aiModel', '');
+    });
+
+    it('reports not ready when only the legacy Anthropic key is set for another provider', async () => {
+      db.setSetting('suggestHttp', 'true');
+      db.setSetting('aiProvider', 'openai');
+      db.setSetting('anthropicApiKey', 'legacy-not-real');
+      const res = await h.request(base, 'GET', '/api/settings/ai-status');
+      assert.deepEqual(res.json, { required: true, ready: false });
+      db.setSetting('anthropicApiKey', '');
     });
 
     it('reports ready for ollama without a key', async () => {

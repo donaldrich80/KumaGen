@@ -6,7 +6,7 @@ const router = express.Router();
 const { listContainers, getContainerEnvKeys, getContainerDbEnv } = require('../docker');
 const { getOpenApiSpecs } = require('../openapi');
 const { suggestMonitors, needsAI } = require('../ai');
-const { getSetting } = require('../db');
+const { getMonitorSettings } = require('../db');
 const log = require('../log');
 const { CODES } = require('../codes');
 
@@ -33,17 +33,7 @@ router.post('/', async (req, res) => {
       return res.status(404).json({ error: 'None of the specified containers were found' });
     }
 
-    const monitorSettings = {
-      suggestHttp:      (getSetting('suggestHttp')      ?? 'true') !== 'false',
-      suggestPort:      (getSetting('suggestPort')      ?? 'true') !== 'false',
-      suggestPing:      (getSetting('suggestPing')      ?? 'true') !== 'false',
-      suggestDns:       (getSetting('suggestDns')       ?? 'false') !== 'false',
-      suggestDocker:    (getSetting('suggestDocker')    ?? 'true') !== 'false',
-      suggestDatabase:  (getSetting('suggestDatabase')  ?? 'true') !== 'false',
-      useContainerNames:  (getSetting('useContainerNames')  ?? 'false') !== 'false',
-      useTraefikLabels:   (getSetting('useTraefikLabels')   ?? 'true')  !== 'false',
-      preferPublicUrl:    (getSetting('preferPublicUrl')    ?? 'false') !== 'false',
-    };
+    const monitorSettings = getMonitorSettings();
 
     // Branch: AI is only consulted when HTTP/DNS suggestions are enabled; otherwise
     // env keys and OpenAPI probes are skipped entirely.

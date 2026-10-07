@@ -2,17 +2,22 @@
 // needed, and test the Uptime Kuma connection. Last verified: 2026-10-07.
 const express = require('express');
 const router = express.Router();
-const { getAllSettings, setSetting, getSetting } = require('../db');
+const { getAllSettings, setSetting, getMonitorSettings } = require('../db');
 const { testConnection } = require('../kuma');
-const { needsAI } = require('../ai');
+const { needsAI, resolveAiConfig } = require('../ai');
 const log = require('../log');
 const { CODES } = require('../codes');
+
+// Secret settings are never sent to the client; a PUT echoing the mask is ignored
+const MASK = '••••••••';
+const SECRET_KEYS = ['kumaPassword', 'aiApiKey', 'anthropicApiKey'];
 
 // GET /api/settings
 router.get('/', (req, res) => {
   const settings = getAllSettings();
-  // Mask password
-  if (settings.kumaPassword) settings.kumaPassword = '••••••••';
+  for (const key of SECRET_KEYS) {
+    if (settings[key]) settings[key] = MASK;
+  }
   res.json(settings);
 });
 
@@ -27,11 +32,13 @@ router.put('/', (req, res) => {
   const updates = [];
 
   for (const key of allowed) {
-    if (body[key] !== undefined) {
-      // Branch: skip masked password (don't overwrite with placeholder)
-      if (key === 'kumaPassword' && body[key] === '••••••••') continue;
-      // External call: SQLite write
-      setSetting(key, body[key]);
+    // Branch: absent or null keys are left unchanged (the column is NOT NULL)
+    if (body[key] != null) {
+      // Branch: skip a masked secret (don't overwrite with placeholder)
+      if (SECRET_KEYS.includes(key) && body[key] === MASK) continue;
+      // External call: SQLite write; values are stored as text (JSON true -> 'true'),
+      // since better-sqlite3 cannot bind booleans
+      setSetting(key, String(body[key]));
       updates.push(key);
     }
   }
@@ -43,16 +50,8 @@ router.put('/', (req, res) => {
 
 // GET /api/settings/ai-status — whether AI is needed and whether it's configured
 router.get('/ai-status', (req, res) => {
-  const monitorSettings = {
-    suggestHttp:     (getSetting('suggestHttp')     ?? 'true') !== 'false',
-    suggestDns:      (getSetting('suggestDns')      ?? 'false') !== 'false',
-    suggestDatabase: (getSetting('suggestDatabase') ?? 'true') !== 'false',
-  };
-  const required = needsAI(monitorSettings);
-  const configured = !!(getSetting('aiApiKey') || getSetting('anthropicApiKey') || process.env.ANTHROPIC_API_KEY);
-  const provider = getSetting('aiProvider') || 'anthropic';
-  // Ollama doesn't need an API key
-  const ready = !required || provider === 'ollama' || configured;
+  const required = needsAI(getMonitorSettings());
+  const ready = !required || resolveAiConfig().ready;
   res.json({ required, ready });
 });
 

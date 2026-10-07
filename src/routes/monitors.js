@@ -3,7 +3,7 @@
 const express = require('express');
 const router = express.Router();
 const { addMonitors } = require('../kuma');
-const { recordMonitors, getSetting } = require('../db');
+const { recordMonitors, getBoolSetting } = require('../db');
 const log = require('../log');
 const { CODES } = require('../codes');
 
@@ -21,7 +21,7 @@ router.post('/', async (req, res) => {
   const groupByContainer =
     options.groupByContainer !== undefined
       ? options.groupByContainer
-      : (getSetting('groupByContainer') ?? 'false') !== 'false';
+      : getBoolSetting('groupByContainer', false);
 
   const run = log.startRun('monitors');
   try {

@@ -17,9 +17,6 @@ async function listContainers() {
       hostIp: p.IP || '0.0.0.0',
     }));
 
-    // Only include env var keys, not values (security)
-    const envKeys = [];
-
     return {
       id: c.Id,
       shortId: c.Id.slice(0, 12),
@@ -37,16 +34,19 @@ async function listContainers() {
   });
 }
 
-// External call: Docker inspect; returns env var NAMES only, [] on any error
-async function getContainerEnvKeys(containerId) {
+// External call: Docker inspect; the container's raw "KEY=value" env list, [] on any error
+async function inspectEnv(containerId) {
   try {
-    const container = docker.getContainer(containerId);
-    const info = await container.inspect();
-    const env = info.Config?.Env || [];
-    return env.map(e => e.split('=')[0]).filter(Boolean);
+    const info = await docker.getContainer(containerId).inspect();
+    return info.Config?.Env || [];
   } catch {
     return [];
   }
+}
+
+// Env var NAMES only
+async function getContainerEnvKeys(containerId) {
+  return (await inspectEnv(containerId)).map(e => e.split('=')[0]).filter(Boolean);
 }
 
 // Strict allowlist: only well-known database credential env var names.
@@ -60,23 +60,16 @@ const DB_ENV_ALLOWLIST = new Set([
   'MONGODB_USERNAME', 'MONGODB_PASSWORD', 'MONGODB_DATABASE',
 ]);
 
-// External call: Docker inspect; returns allow-listed DB env VALUES ({} on error) — never log them
+// Allow-listed DB env VALUES ({} on error) — never log them
 async function getContainerDbEnv(containerId) {
-  try {
-    const container = docker.getContainer(containerId);
-    const info = await container.inspect();
-    const env = info.Config?.Env || [];
-    const result = {};
-    for (const e of env) {
-      const idx = e.indexOf('=');
-      if (idx === -1) continue;
-      const key = e.slice(0, idx);
-      if (DB_ENV_ALLOWLIST.has(key)) result[key] = e.slice(idx + 1);
-    }
-    return result;
-  } catch {
-    return {};
+  const result = {};
+  for (const e of await inspectEnv(containerId)) {
+    const idx = e.indexOf('=');
+    if (idx === -1) continue;
+    const key = e.slice(0, idx);
+    if (DB_ENV_ALLOWLIST.has(key)) result[key] = e.slice(idx + 1);
   }
+  return result;
 }
 
 // External call: Docker ping; false (never throws) when the socket is absent

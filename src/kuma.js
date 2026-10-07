@@ -86,9 +86,10 @@ async function addMonitors(monitors, options = {}) {
     );
     if (existing) return existing.id;
 
-    // 2. Fall back to KumaGen's local DB (handles cases where monitorList was stale)
+    // 2. Fall back to KumaGen's local DB (the group may have been renamed in Kuma).
+    // Branch: a stored id missing from the live list was deleted in Kuma -> create anew
     const storedId = getGroupMonitorId(containerId);
-    if (storedId) return storedId;
+    if (storedId != null && monitorList[storedId]) return storedId;
 
     // 3. Create a new group monitor
     const { monitorID } = await emitAdd({
@@ -107,20 +108,19 @@ async function addMonitors(monitors, options = {}) {
     return monitorID;
   }
 
-  // Pre-resolve group IDs for all containers in this batch (creates groups as needed)
-  const groupIdByContainer = {};
-  if (groupByContainer) {
-    const seen = new Set();
-    for (const { containerId, containerName } of monitors) {
-      if (!seen.has(containerId)) {
-        seen.add(containerId);
-        groupIdByContainer[containerId] = await resolveOrCreateGroup(containerId, containerName);
-      }
-    }
-  }
-
   const results = [];
   try {
+    // Pre-resolve group IDs for all containers in this batch (creates groups as needed).
+    // Error path: a failed group add rejects the whole batch; finally still disconnects.
+    const groupIdByContainer = {};
+    if (groupByContainer) {
+      for (const { containerId, containerName } of monitors) {
+        if (!(containerId in groupIdByContainer)) {
+          groupIdByContainer[containerId] = await resolveOrCreateGroup(containerId, containerName);
+        }
+      }
+    }
+
     for (const monitor of monitors) {
       const { containerId, containerName, ...monitorData } = monitor;
       try {
@@ -133,7 +133,7 @@ async function addMonitors(monitors, options = {}) {
           kafkaProducerSaslOptions: {},
           ...monitorData,
         };
-        if (groupByContainer && groupIdByContainer[containerId] != null) {
+        if (groupIdByContainer[containerId] != null) {
           payload.parent = groupIdByContainer[containerId];
         }
         const result = await emitAdd(payload);
