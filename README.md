@@ -157,6 +157,30 @@ KumaGen/
 
 ---
 
+## Testing
+
+```bash
+npm install   # once — the suite needs the server's npm dependencies
+node --test --test-reporter=spec tests/*.test.js
+```
+
+That one command (also recorded in `.test-command`) runs the whole suite with Node's built-in
+test runner — no extra test dependencies. It is offline and needs no credentials: Docker,
+Uptime Kuma (socket.io) and the AI SDK are faked in `tests/helpers.js`, and the SQLite database
+goes to a temp file. The `spec` reporter prints every skipped test with its reason; if
+`npm install` has not been run, each suite is skipped with "dependency … not installed".
+
+Characterization tests, one per door:
+
+- `tests/server.test.js` — boots `server/index.js` as a subprocess (port, logging, CORS, SPA fallback)
+- `tests/routes.test.js` — every `/api/*` HTTP endpoint: status codes and response shapes
+- `tests/modules.test.js` — the functions server modules export to each other (`db`, `docker`,
+  `kuma`, `ai`, `programmatic`, `traefik`, `db-connection`, `health-endpoints`, `openapi`)
+
+The `client/` React app has no doors at this level and is not tested.
+
+---
+
 ## License
 
 MIT
