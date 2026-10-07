@@ -12,20 +12,21 @@
     "install:all": "npm install && cd client && npm install"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^1.2.9",
-    "@ai-sdk/google": "^1.2.9",
-    "@ai-sdk/openai": "^1.2.9",
-    "ai": "^4.3.9",
-    "ollama-ai-provider": "^1.2.0",
-    "better-sqlite3": "^11.9.1",
-    "cors": "^2.8.5",
-    "dockerode": "^4.0.4",
-    "dotenv": "^16.4.7",
-    "express": "^4.21.2",
-    "socket.io-client": "^4.8.1"
+    "@ai-sdk/anthropic": "^4.0.74",
+    "@ai-sdk/google": "^4.0.90",
+    "@ai-sdk/openai": "^4.0.86",
+    "ai": "^7.0.130",
+    "better-sqlite3": "^13.0.3",
+    "cors": "^2.8.6",
+    "dockerode": "^5.0.1",
+    "dotenv": "^18.0.6",
+    "express": "^5.2.1",
+    "ollama-ai-provider-v2": "^4.0.1",
+    "socket.io-client": "^4.8.4",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2",
-    "nodemon": "^3.1.9"
+    "concurrently": "^10.0.5",
+    "nodemon": "^3.1.14"
   }
 }

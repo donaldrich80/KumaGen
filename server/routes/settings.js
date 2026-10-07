@@ -19,13 +19,14 @@ router.put('/', (req, res) => {
     'suggestHttp', 'suggestPort', 'suggestPing', 'suggestDns', 'suggestDocker', 'suggestDatabase',
     'useContainerNames', 'useTraefikLabels', 'groupByContainer', 'preferPublicUrl',
   ];
+  const body = req.body || {};
   const updates = [];
 
   for (const key of allowed) {
-    if (req.body[key] !== undefined) {
+    if (body[key] !== undefined) {
       // Skip masked password (don't overwrite with placeholder)
-      if (key === 'kumaPassword' && req.body[key] === '••••••••') continue;
-      setSetting(key, req.body[key]);
+      if (key === 'kumaPassword' && body[key] === '••••••••') continue;
+      setSetting(key, body[key]);
       updates.push(key);
     }
   }

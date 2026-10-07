@@ -6,7 +6,7 @@ const { recordMonitors, getSetting } = require('../db');
 // POST /api/monitors
 // Body: { monitors: Array<{ containerId, containerName, ...kumaMonitorFields }> }
 router.post('/', async (req, res) => {
-  const { monitors, options = {} } = req.body;
+  const { monitors, options = {} } = req.body || {};
   if (!Array.isArray(monitors) || monitors.length === 0) {
     return res.status(400).json({ error: 'monitors must be a non-empty array' });
   }

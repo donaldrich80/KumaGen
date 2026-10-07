@@ -8,7 +8,7 @@ const { getSetting } = require('../db');
 // POST /api/suggestions
 // Body: { containerIds: string[] }
 router.post('/', async (req, res) => {
-  const { containerIds } = req.body;
+  const { containerIds } = req.body || {};
   if (!Array.isArray(containerIds) || containerIds.length === 0) {
     return res.status(400).json({ error: 'containerIds must be a non-empty array' });
   }

@@ -2,14 +2,14 @@ const { generateText } = require('ai');
 const { createAnthropic } = require('@ai-sdk/anthropic');
 const { createOpenAI } = require('@ai-sdk/openai');
 const { createGoogleGenerativeAI } = require('@ai-sdk/google');
-const { createOllama } = require('ollama-ai-provider');
+const { createOllama } = require('ollama-ai-provider-v2');
 const { getSetting } = require('./db');
 const { generateProgrammaticSuggestions, needsAI } = require('./programmatic');
 const { getTraefikRouters } = require('./traefik');
 const { enrichDbSuggestions } = require('./db-connection');
 
 const DEFAULT_MODELS = {
-  anthropic: 'claude-opus-4-6',
+  anthropic: 'claude-opus-5-5',
   openai: 'gpt-4o',
   google: 'gemini-2.0-flash',
   ollama: 'llama3.2',
@@ -29,7 +29,7 @@ function getModel() {
     }
     case 'openai': {
       if (!apiKey) throw new Error('OpenAI API key not configured. Set it in Settings.');
-      return createOpenAI({ apiKey })(modelName || DEFAULT_MODELS.openai);
+      return createOpenAI({ apiKey }).chat(modelName || DEFAULT_MODELS.openai);
     }
     case 'google': {
       if (!apiKey) throw new Error('Google AI API key not configured. Set it in Settings.');
@@ -43,7 +43,7 @@ function getModel() {
       if (!baseUrl) throw new Error('Base URL is required for OpenAI-compatible providers. Set it in Settings.');
       const client = createOpenAI({ apiKey: apiKey || 'none', baseURL: baseUrl });
       if (!modelName) throw new Error('Model name is required for OpenAI-compatible providers. Set it in Settings.');
-      return client(modelName);
+      return client.chat(modelName);
     }
     default:
       throw new Error(`Unknown AI provider: "${provider}". Choose one in Settings.`);
@@ -274,7 +274,7 @@ async function suggestMonitors(containers, settings) {
 
   const { text } = await generateText({
     model,
-    system: buildSystemPrompt(aiSettings),
+    instructions: buildSystemPrompt(aiSettings),
     prompt: `Please suggest Uptime Kuma health check monitors for these Docker containers:\n\n${JSON.stringify(containerList, null, 2)}`,
   });
 

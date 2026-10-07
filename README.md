@@ -87,7 +87,7 @@ KUMA_PASSWORD=secret
 
 | Provider | Default Model | Notes |
 |----------|--------------|-------|
-| **Anthropic** | `claude-opus-4-6` | [Browse models](https://docs.anthropic.com/en/docs/about-claude/models) |
+| **Anthropic** | `claude-opus-5-5` | [Browse models](https://docs.anthropic.com/en/docs/about-claude/models) |
 | **OpenAI** | `gpt-4o` | [Browse models](https://platform.openai.com/docs/models) |
 | **Google Gemini** | `gemini-2.0-flash` | [Browse models](https://ai.google.dev/gemini-api/docs/models/gemini) |
 | **Ollama** | `llama3.2` | Self-hosted. [Browse models](https://ollama.com/library) |

@@ -247,7 +247,7 @@ describe('server modules', { skip }, () => {
       const out = await suggestMonitors(containers, { suggestHttp: true });
 
       assert.equal(fakes.ai.calls.length, 1);
-      assert.equal(typeof fakes.ai.calls[0].system, 'string');
+      assert.equal(typeof fakes.ai.calls[0].instructions, 'string');
       assert.match(fakes.ai.calls[0].prompt, /"id": "n1"/);
       const names = out.n1.map(s => s.name);
       assert.ok(!names.includes('dup'));

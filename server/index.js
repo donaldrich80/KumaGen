@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -18,8 +18,8 @@ app.use('/api/monitors', require('./routes/monitors'));
 // Serve built React app in production
 const clientDist = path.join(__dirname, '..', 'client', 'dist');
 app.use(express.static(clientDist));
-app.get('*', (req, res) => {
-  res.sendFile(path.join(clientDist, 'index.html'));
+app.get('/{*splat}', (req, res) => {
+  res.sendFile('index.html', { root: clientDist });
 });
 
 app.listen(PORT, () => {

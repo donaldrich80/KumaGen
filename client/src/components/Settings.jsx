@@ -17,7 +17,7 @@ const PROVIDERS = [
     value: 'anthropic',
     label: 'Anthropic',
     placeholder: 'sk-ant-...',
-    defaultModel: 'claude-opus-4-6',
+    defaultModel: 'claude-opus-5-5',
     needsBaseUrl: false,
     links: [{ label: 'Browse models', url: 'https://docs.anthropic.com/en/docs/about-claude/models' }],
   },
@@ -221,7 +221,7 @@ export function Settings({ open, onOpenChange }) {
               <Label htmlFor="aiProvider">Provider</Label>
               <select
                 id="aiProvider"
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
                 value={form.aiProvider}
                 onChange={e => setForm(f => ({ ...f, aiProvider: e.target.value, aiModel: '', aiBaseUrl: '' }))}
               >
